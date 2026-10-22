@@ -90,33 +90,26 @@
   }
 
   .section-title { margin: 2px 0 0; font-size: 11px; color: #9fb4ff; text-transform: uppercase; letter-spacing: 1px; text-align: center; }
-  .team-list {
+  .roster {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
     overflow-y: auto;
     flex: 1;
     min-height: 0;
-    align-content: flex-start;
   }
-  .team-btn {
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: bold;
-    text-align: center;
+  .roster-map { font-size: 12px; color: #9fb4ff; text-align: center; }
+  .roster-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     background: #1c1f26;
-    border: 2px solid #333;
     border-radius: 6px;
-    color: #ddd;
-    width: auto;
-    height: auto;
+    padding: 4px 8px;
+    font-size: 13px;
   }
-  .team-btn.active {
-    border-color: #2b6fff;
-    background: #22304f;
-    color: #fff;
-  }
+  .roster-row img { width: 24px; height: 24px; border-radius: 4px; }
+  .roster-row .agent { margin-left: auto; color: #888; font-size: 11px; }
   .empty-note { color: #666; font-size: 12px; text-align: center; padding: 4px 0; }
 
   .bottom-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
@@ -247,16 +240,16 @@
 
     <button class="reset" onclick="resetScore()">Reset Score</button>
 
-    <div class="section-title">Active Team / Comp</div>
-    <div class="bestof-row" title="Which team the LIVE roster shows. Blue starts on defense, Red on attack. The enemy team only appears once the match loads (Riot hides it during agent select).">
-      <span class="bestof-label">LIVE shows:</span>
+    <div class="section-title">Live Roster</div>
+    <div class="bestof-row" title="Which team the roster shows. Blue starts on defense, Red on attack. The enemy team only appears once the match loads (Riot hides it during agent select).">
+      <span class="bestof-label">Show:</span>
       <button class="bestof-btn side-btn" data-side="ours" onclick="setLiveSide('ours')">Ours</button>
       <button class="bestof-btn side-btn" data-side="enemy" onclick="setLiveSide('enemy')">Enemy</button>
       <button class="bestof-btn side-btn" data-side="blue" onclick="setLiveSide('blue')">Blue</button>
       <button class="bestof-btn side-btn" data-side="red" onclick="setLiveSide('red')">Red</button>
     </div>
-    <div class="team-list" id="teamList">
-      <div class="empty-note">No teams found in options.txt</div>
+    <div class="roster" id="roster">
+      <div class="empty-note">Not in a match</div>
     </div>
   </div>
 
@@ -334,64 +327,41 @@
 
   fetch('/api/score').then(r => r.json()).then(s => { current = s; render(); });
 
-  // ---------- team / comp switching ----------
+  // ---------- live roster (read-only - comes straight from the Valorant client) ----------
 
-  let latestTeams = [];
-  let latestActiveTitle = null;
-
-  function renderTeamList() {
-    const container = document.getElementById('teamList');
-    if (!latestTeams.length) {
-      container.innerHTML = '<div class="empty-note">No teams found in options.txt</div>';
+  function renderRoster(roster) {
+    const container = document.getElementById('roster');
+    container.innerHTML = '';
+    if (!roster.players.length) {
+      container.innerHTML = '<div class="empty-note">Not in a match</div>';
       return;
     }
-    container.innerHTML = '';
-    latestTeams.forEach((team) => {
-      const btn = document.createElement('button');
-      btn.className = 'team-btn' + (team.title === latestActiveTitle ? ' active' : '');
-      btn.textContent = team.live && team.map ? `${team.title} · ${team.map}` : team.title;
-      btn.onclick = () => setActiveTeam(team.title);
-      container.appendChild(btn);
-    });
-  }
-
-  async function setActiveTeam(title) {
-    const res = await fetch('/api/active', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    });
-    const updated = await res.json();
-    latestActiveTitle = updated.title;
-    renderTeamList();
-  }
-
-  fetch('/api/teams').then(r => r.json()).then(teams => { latestTeams = teams; renderTeamList(); });
-  fetch('/api/active').then(r => r.json()).then(a => {
-    latestActiveTitle = a.title;
-    // if nothing has been chosen yet, default to the first team as soon as we know it
-    if (latestActiveTitle == null && latestTeams.length) {
-      setActiveTeam(latestTeams[0].title);
-    } else {
-      renderTeamList();
+    if (roster.map) {
+      const map = document.createElement('div');
+      map.className = 'roster-map';
+      map.textContent = roster.map;
+      container.appendChild(map);
     }
-  });
+    roster.players.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'roster-row';
+      const icon = document.createElement('img');
+      if (p.agent) icon.src = '/agent-icon/' + encodeURIComponent(p.agent);
+      else icon.style.visibility = 'hidden';
+      const name = document.createElement('span');
+      name.textContent = p.player;
+      const agent = document.createElement('span');
+      agent.className = 'agent';
+      agent.textContent = p.agent || 'picking...';
+      row.append(icon, name, agent);
+      container.appendChild(row);
+    });
+  }
 
   const teamEvents = new EventSource('/events');
-  teamEvents.addEventListener('teams', (e) => {
-    latestTeams = JSON.parse(e.data);
-    if (latestActiveTitle == null && latestTeams.length) {
-      setActiveTeam(latestTeams[0].title);
-    } else {
-      renderTeamList();
-    }
-  });
-  teamEvents.addEventListener('active', (e) => {
-    latestActiveTitle = JSON.parse(e.data).title;
-    renderTeamList();
-  });
+  teamEvents.addEventListener('roster', (e) => renderRoster(JSON.parse(e.data)));
 
-  // ---------- which team the LIVE (from Valorant) roster follows ----------
+  // ---------- which team the live roster follows ----------
 
   function renderLiveSide(side) {
     document.querySelectorAll('.side-btn').forEach((btn) => {

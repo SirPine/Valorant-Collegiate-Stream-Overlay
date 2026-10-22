@@ -1,11 +1,11 @@
 {
   "name": "obs-overlay",
   "version": "1.0.0",
-  "description": "Dynamic OBS browser-source overlay: live player/agent names from options.txt + on-screen score control",
-  "main": "server.js",
+  "description": "Dynamic OBS browser-source overlay: live player/agent names from the Valorant client + on-screen score control",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
   },
   "dependencies": {
     "express": "^4.19.2"

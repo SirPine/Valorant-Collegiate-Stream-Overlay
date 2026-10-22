@@ -1,32 +1,33 @@
 # Dynamic OBS Overlay
 
 A small local web app that:
-- Overlays player names + agent icons on top of your `assets/static.png`, reading from `assets/options.txt`
-- Updates **live** the instant you save changes to `assets/options.txt` — no OBS refresh needed
+- Overlays player names + agent icons on top of your `assets/static.png`, read live from the Valorant
+  client: whatever the players actually pick shows up on stream, with no OBS refresh needed
 - Gives you an on-screen score panel (buttons + arrow-key hotkeys) that updates the score live on stream
 
 ## 1. Setup (one time)
 
 You need [Node.js](https://nodejs.org) installed (any recent version).
 
-All your images and `options.txt` live together in the `assets` folder:
+All your images live together in the `assets` folder:
 ```
 assets/
   static.png              <- roster overlay background
   intro-background.png    <- intro/timer overlay background
-  options.txt              <- player/team roster data
-  agent icons/             <- AgentName_icon.png files
+  agent icons/             <- backup AgentName_icon.png files (used only when offline)
   teams/                   <- TeamName.png logo files
-  maps/                    <- MapName.png thumbnail files
+  maps/                    <- backup MapName.png images (used only when offline)
 ```
 
 1. Unzip this folder anywhere, e.g. `C:\obs-overlay` or `~/obs-overlay`.
 2. Replace `assets/static.png` and `assets/intro-background.png` with your real overlay images
    (same filenames).
-3. Put your real agent icon files into `assets/agent icons/`, named exactly:
-   `AgentName_icon.png` (e.g. `Brimstone_icon.png`).
+3. Agent icons download automatically from valorant-api.com the first time each agent is shown,
+   and a copy is kept in `cache/agent-icons/`. New agents work without adding any files. The
+   `AgentName_icon.png` files in `assets/agent icons/` are only a backup for when the internet is down.
 4. Put team logo files into `assets/teams/`, named `TeamName.png` (e.g. `Buffalo.png`).
-5. Put map thumbnail files into `assets/maps/`, named `MapName.png` (e.g. `Bind.png`).
+5. Map images also come from valorant-api.com (the official 1920x1080 loading-screen art) and
+   are kept in `cache/maps/`. The files in `assets/maps/` are only a backup for when the internet is down.
 6. Open a terminal in this folder and run:
    ```
    npm install
@@ -43,7 +44,7 @@ server's up; close it, server's down. If you try to run `start.bat` again while 
 running, it'll tell you and won't start a second copy.
 
 **While editing the code:** run `npm run dev` in a terminal instead. The server restarts by itself
-whenever you save `server.js` or `valorant.js`. Files in `public/` don't need a restart; just refresh the
+whenever you save a file in `src/`. Files in `public/` don't need a restart; just refresh the
 page or OBS source. Stop it with Ctrl+C. Only one server can run at a time, so close any `start.bat`
 window first.
 
@@ -66,67 +67,30 @@ than opening it in a separate browser tab.
   - ↑ / ↓ = your score +1 / −1
   - → / ← = opponent score +1 / −1
 
-## 4. Editing players/agents live, mid-stream
+## 4. Player names + agents (automatic, from Valorant)
 
-Just open `assets/options.txt` in Notepad (or any editor), edit it, and save. Each team/comp is its own block:
-```
-TeamOrMapTitle
-PlayerName-AgentName
-PlayerName-AgentName
-PlayerName-AgentName
-PlayerName-AgentName
-PlayerName-AgentName
-```
-Leave **at least one blank line** between teams. For example:
-```
-Haven
-Pine-Brimstone
-Sensational-Neon
-Jss-Omen
-Ares-Sova
-Wild-Skye
-
-Bind
-Pine-Jett
-Sensational-Cypher
-Jss-Sage
-Ares-Sova
-Wild-Fade
-```
-The overlay will pick up any edits within about a second — no need to touch OBS.
-
-## 4b. Automatic roster from Valorant
-
-If Valorant is running **on the same PC as this server** (you're playing or spectating), the
-server reads the roster straight from the game. You don't need to edit `options.txt`:
-- As soon as agent select starts, a **LIVE** button appears at the top of the team list
-  (e.g. "LIVE · Ascent"), and the overlay switches to it automatically.
-- Agents update as players hover or lock, and the roster stays correct once the match loads.
-- Player order follows the order names appear in `options.txt` (matched case-insensitively against
-  in-game names), so the rows don't shuffle around. Unknown names go last.
-- **LIVE shows:** buttons in the control panel pick which team the LIVE roster follows:
-  - **Ours:** your team. When spectating, it's the team whose in-game names best match `options.txt`.
-  - **Enemy:** the other team.
+The roster comes straight from the game. There's nothing to type in. Valorant has to be running
+**on the same PC as this server** (you're playing or spectating):
+- When agent select starts, the 5 player rows fill in with in-game names. Agents appear as players
+  hover and lock them, and stay correct once the match loads.
+- Players are listed alphabetically, so the rows don't reshuffle between agent select and the live game.
+- Outside a match (menus, lobby, Valorant closed) the rows are empty. They clear a few seconds after
+  a match ends.
+- The **Live Roster** section of the control panel shows the map and each player's agent, so you
+  can check what's on stream.
+- The **Show:** buttons pick which team the roster follows:
+  - **Ours:** your team. When spectating you're not on a team, so this means Blue.
+  - **Enemy:** the other team. When spectating, this means Red.
   - **Blue / Red:** a fixed team (Blue starts on defense, Red on attack).
 
   Riot hides the enemy team during agent select, so Enemy (or the other color) stays blank until the
   match loads.
-- The LIVE roster stays up after the match ends, so the overlay doesn't jump. You can still click any
-  `options.txt` block to override it.
 
 This uses Riot's unofficial local client API (read-only, the same one tools like VRY use) plus
 valorant-api.com for agent and map names, so it needs internet access and may break if Riot changes
-things. If it stops working, `options.txt` keeps working as before.
+things.
 
-## 5. Switching which team/comp is shown
-
-Open the control panel (`http://localhost:3000/control.html`) — under "Active Team / Comp" you'll see a
-button for every team block found in `assets/options.txt`. Click one to instantly switch what's shown on the
-overlay (useful for switching per-map comps mid-cast). The first team is selected automatically by default.
-This list updates live too, so if you add a new team block to `assets/options.txt`, a new button appears
-automatically.
-
-## 6. Map score (Bo1/Bo3/Bo5 diamonds)
+## 5. Map score (Bo1/Bo3/Bo5 diamonds)
 
 The map-win diamonds sit in the top-left and top-right corners of the screen — over the area
 where Valorant's own in-game HUD shows each team — rather than in a separate box. Left corner =
@@ -139,10 +103,9 @@ In the control panel:
 - The **US MAPS WON** / **THEM MAPS WON** +/- buttons (and the ↑↓←→ hotkeys) fill in diamonds as
   maps are won.
 
-The 5-agent roster list is unrelated to this and untouched — it always shows whichever team/comp
-is selected further down in the panel.
+The player roster is unrelated to this and isn't affected by the score.
 
-## 7. Intro / Timer scene
+## 6. Intro / Timer scene
 
 There's a second overlay scene for a pre-match "intro" screen: a countdown timer, both teams'
 logos + names, and the maps being played.
@@ -157,14 +120,13 @@ Same size as the other one: 1920x1080.
 name must match what's typed into the "Our team" / "Opponent" fields on the **Score** tab of the
 control panel (those fields are shared between both scenes, so you only set them once).
 
-**Maps:** drop image files into the `assets/maps` folder, named exactly `<MapName>.png`. Go to the
+**Maps:** the map list and images come from valorant-api.com, so there are no files to manage. Go to the
 **Intro / Timer** tab in the control panel to:
 - Set the countdown timer (pick a date/time, hit Set — it counts down live; Clear resets it to
   `00:00:00`)
 - Choose Bo1 or Bo3 (Bo1 shows a single centered map slot, Bo3 shows all three)
-- Pick each map from a dropdown — it's automatically populated from whatever files are in the
-  `assets/maps` folder, so just add a new file there and it shows up as an option right away, no restart
-  needed.
+- Pick each map from a dropdown. It lists the current competitive map pool, so a new map shows up
+  on its own when Riot adds it. If you're offline, it lists the files in `assets/maps` instead.
 
 ## Notes / troubleshooting
 - The server's lifetime is tied directly to the terminal window `start.bat` opens — close that
@@ -174,9 +136,30 @@ control panel (those fields are shared between both scenes, so you only set them
 - The 5 player rows are positioned to match the placeholder boxes measured
   from your original `static.png` layout. If you change the static background's layout, edit the
   `top`/`left` px values in `public/overlay.html` (`.player-row`) to match.
-- If an agent icon doesn't show up, double check the exact spelling/case in `assets/options.txt`
-  matches the `AgentName_icon.png` filename in `assets/agent icons/`.
-- Score and team label are saved to `score.json`, so they survive a restart.
-- The currently active team/comp is saved to `active.json`, so it also survives a restart.
-- If you rename or remove the currently active team's title in `assets/options.txt`, the overlay
-  automatically falls back to showing the first team in the file.
+- If an agent icon or map image doesn't show up, delete `cache/agent-icons` or `cache/maps` to force
+  them to download again. Don't delete the whole `cache` folder unless you also want to reset your settings.
+- Everything you set in the control panel (score, team labels, intro timer and maps, the Show: choice)
+  is saved to `cache/state.json`, so it survives a restart. Delete it to reset everything to defaults.
+
+## Project layout
+
+```
+src/                  the server (Node.js)
+  server.js             starts the server; lists every URL it handles
+  paths.js              where every folder and file lives
+  state.js              saved control-panel settings (cache/state.json)
+  events.js             pushes live updates to the overlay pages
+  live-roster.js        checks Valorant every 2s and keeps the current roster
+  riot-client.js        reads the match from the Riot Client / Riot's game servers
+  valorant-api.js       agent + map names and images from valorant-api.com
+  images.js             agent icons, map images, team logos
+  http.js               small HTTPS helper
+public/               the pages OBS and the control panel load
+  overlay.html          roster overlay (player names + agents, map-score diamonds)
+  intro.html            intro/timer scene
+  control.html          control panel (OBS dock)
+  dashboard.html        stream + chat + control panel in one page
+assets/               your images (backgrounds, team logos)
+cache/                created automatically, git-ignored: settings + downloaded images
+start.bat             double-click to run the server
+```

@@ -147,9 +147,6 @@
   </div>
 
 <script>
-  let latestTeams = [];
-  let latestActiveTitle = null;
-
   function fitNameText(el) {
     // reset to base size, then shrink only if it overflows the available width
     el.style.fontSize = '';
@@ -168,7 +165,7 @@
       const p = players[i];
       if (p) {
         nameEl.textContent = p.player || '';
-        iconEl.src = p.agent ? ('/agent-icons/' + encodeURIComponent(p.agent) + '_icon.png') : '';
+        iconEl.src = p.agent ? ('/agent-icon/' + encodeURIComponent(p.agent)) : '';
         iconEl.style.visibility = p.agent ? 'visible' : 'hidden';
       } else {
         nameEl.textContent = '';
@@ -177,16 +174,6 @@
       }
       fitNameText(nameEl);
     }
-  }
-
-  function renderActiveTeam() {
-    if (!latestTeams.length) {
-      renderPlayers([]);
-      return;
-    }
-    let team = latestTeams.find((t) => t.title === latestActiveTitle);
-    if (!team) team = latestTeams[0]; // fallback if the chosen title no longer exists
-    renderPlayers(team.players || []);
   }
 
   function renderDiamondGroup(containerId, wins, total) {
@@ -212,14 +199,13 @@
   }
 
   // initial load
-  fetch('/api/teams').then(r => r.json()).then(teams => { latestTeams = teams; renderActiveTeam(); }).catch(() => {});
-  fetch('/api/active').then(r => r.json()).then(a => { latestActiveTitle = a.title; renderActiveTeam(); }).catch(() => {});
+  fetch('/api/roster').then(r => r.json()).then(roster => renderPlayers(roster.players)).catch(() => {});
   fetch('/api/score').then(r => r.json()).then(renderScore).catch(() => {});
 
   // live updates
   const es = new EventSource('/events');
-  es.addEventListener('teams', (e) => { latestTeams = JSON.parse(e.data); renderActiveTeam(); });
-  es.addEventListener('active', (e) => { latestActiveTitle = JSON.parse(e.data).title; renderActiveTeam(); });
+  // players + agents straight from the Valorant client; empty outside a match
+  es.addEventListener('roster', (e) => renderPlayers(JSON.parse(e.data).players));
   es.addEventListener('score', (e) => renderScore(JSON.parse(e.data)));
 </script>
 

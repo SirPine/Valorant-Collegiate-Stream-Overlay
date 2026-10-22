@@ -208,7 +208,7 @@
     const url = '/map-image/' + encodeURIComponent(mapName) + '?t=' + Date.now();
     img.onerror = () => {
       img.style.display = 'none';
-      console.error('[intro overlay] map image not found:', mapName, '- tried', url, '- check assets/maps/ for a matching file (any case, .png/.jpg/.jpeg/.webp)');
+      console.error('[intro overlay] map image not found:', mapName, '- tried', url, '- not on valorant-api.com and no matching file in assets/maps/');
     };
     img.onload = () => { img.style.display = 'block'; };
     img.src = url;
