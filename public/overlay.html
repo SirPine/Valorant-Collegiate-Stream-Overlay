@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stream Overlay</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 1920px;
+    height: 1080px;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Arial Narrow', 'Arial', sans-serif;
+  }
+
+  #bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    z-index: 0;
+  }
+
+  /* ---------- player rows ---------- */
+  /* Coordinates were measured directly from the placeholder boxes in static.png */
+
+  .player-row {
+    position: absolute;
+    left: 1594px;
+    width: 309px;
+    height: 88px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 0 0 0 14px;
+  }
+
+  .player-name {
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 42px;
+    text-transform: none;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .player-agent-icon {
+    height: 88px;
+    width: 88px;
+    object-fit: contain;
+    margin-left: 0;
+    background: none;
+    box-shadow: none;
+    transform: scaleX(-1);
+    flex-shrink: 0;
+  }
+
+  /* ---------- map-score diamonds, top-left and top-right corners ---------- */
+  /* These sit over the native in-game HUD area for each team, independent of
+     the 5-agent list below (which is left untouched). */
+
+  .corner-score {
+    position: absolute;
+    top: 26px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #corner-score-left {
+    left: 30px;
+  }
+
+  #corner-score-right {
+    right: 30px;
+    align-items: flex-end;
+  }
+
+  .corner-score .team-label {
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 22px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
+    letter-spacing: 0.5px;
+  }
+
+  .diamond-group {
+    display: flex;
+    gap: 5px;
+  }
+
+  .diamond {
+    font-size: 26px;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
+  }
+
+  .diamond.filled {
+    color: #ffffff;
+  }
+</style>
+</head>
+<body>
+
+  <img id="bg" src="/static.png" alt="" />
+
+  <div class="corner-score" id="corner-score-left">
+    <span class="team-label" id="teamLabel">UB</span>
+    <div class="diamond-group" id="diamonds-us"></div>
+  </div>
+
+  <div class="corner-score" id="corner-score-right">
+    <span class="team-label" id="opponentLabel">OPP</span>
+    <div class="diamond-group" id="diamonds-them"></div>
+  </div>
+
+  <!-- 5 player rows, top values measured from static.png placeholder boxes -->
+  <div class="player-row" style="top:549px;" data-index="0">
+    <span class="player-name" id="name-0"></span>
+    <img class="player-agent-icon" id="icon-0" src="" alt="" />
+  </div>
+  <div class="player-row" style="top:656px;" data-index="1">
+    <span class="player-name" id="name-1"></span>
+    <img class="player-agent-icon" id="icon-1" src="" alt="" />
+  </div>
+  <div class="player-row" style="top:762px;" data-index="2">
+    <span class="player-name" id="name-2"></span>
+    <img class="player-agent-icon" id="icon-2" src="" alt="" />
+  </div>
+  <div class="player-row" style="top:869px;" data-index="3">
+    <span class="player-name" id="name-3"></span>
+    <img class="player-agent-icon" id="icon-3" src="" alt="" />
+  </div>
+  <div class="player-row" style="top:975px;" data-index="4">
+    <span class="player-name" id="name-4"></span>
+    <img class="player-agent-icon" id="icon-4" src="" alt="" />
+  </div>
+
+<script>
+  let latestTeams = [];
+  let latestActiveTitle = null;
+
+  function fitNameText(el) {
+    // reset to base size, then shrink only if it overflows the available width
+    el.style.fontSize = '';
+    const maxWidth = el.clientWidth;
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > maxWidth && size > 18) {
+      size -= 1;
+      el.style.fontSize = size + 'px';
+    }
+  }
+
+  function renderPlayers(players) {
+    for (let i = 0; i < 5; i++) {
+      const nameEl = document.getElementById('name-' + i);
+      const iconEl = document.getElementById('icon-' + i);
+      const p = players[i];
+      if (p) {
+        nameEl.textContent = p.player || '';
+        iconEl.src = p.agent ? ('/agent-icons/' + encodeURIComponent(p.agent) + '_icon.png') : '';
+        iconEl.style.visibility = p.agent ? 'visible' : 'hidden';
+      } else {
+        nameEl.textContent = '';
+        iconEl.src = '';
+        iconEl.style.visibility = 'hidden';
+      }
+      fitNameText(nameEl);
+    }
+  }
+
+  function renderActiveTeam() {
+    if (!latestTeams.length) {
+      renderPlayers([]);
+      return;
+    }
+    let team = latestTeams.find((t) => t.title === latestActiveTitle);
+    if (!team) team = latestTeams[0]; // fallback if the chosen title no longer exists
+    renderPlayers(team.players || []);
+  }
+
+  function renderDiamondGroup(containerId, wins, total) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    for (let i = 0; i < total; i++) {
+      const span = document.createElement('span');
+      span.className = 'diamond' + (i < wins ? ' filled' : '');
+      span.textContent = '\u25C6';
+      el.appendChild(span);
+    }
+  }
+
+  function renderScore(score) {
+    document.getElementById('teamLabel').textContent = score.teamLabel != null ? score.teamLabel : 'UB';
+    document.getElementById('opponentLabel').textContent = score.opponentLabel != null ? score.opponentLabel : 'OPP';
+    const bestOf = score.bestOf || 3;
+    const diamondsNeeded = Math.ceil(bestOf / 2);
+    const us = score.us != null ? score.us : 0;
+    const them = score.them != null ? score.them : 0;
+    renderDiamondGroup('diamonds-us', us, diamondsNeeded);
+    renderDiamondGroup('diamonds-them', them, diamondsNeeded);
+  }
+
+  // initial load
+  fetch('/api/teams').then(r => r.json()).then(teams => { latestTeams = teams; renderActiveTeam(); }).catch(() => {});
+  fetch('/api/active').then(r => r.json()).then(a => { latestActiveTitle = a.title; renderActiveTeam(); }).catch(() => {});
+  fetch('/api/score').then(r => r.json()).then(renderScore).catch(() => {});
+
+  // live updates
+  const es = new EventSource('/events');
+  es.addEventListener('teams', (e) => { latestTeams = JSON.parse(e.data); renderActiveTeam(); });
+  es.addEventListener('active', (e) => { latestActiveTitle = JSON.parse(e.data).title; renderActiveTeam(); });
+  es.addEventListener('score', (e) => renderScore(JSON.parse(e.data)));
+</script>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+Teams
+
+Akron
+Ball State
+Bowling Green State
+Central Michigan
+Eastern Michigan
+Kent State
+Miami
+Northeastern
+Northern Illinois
+Ohio
+Toledo
+Western Michigan
+
+Top: 325
+Left: 1433

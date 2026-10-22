@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stream Dashboard</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #0b0b0d;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  #topbar {
+    height: 52px;
+    background: #17181d;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    box-sizing: border-box;
+    border-bottom: 1px solid #2a2c33;
+  }
+
+  #topbar input {
+    flex: 1;
+    max-width: 480px;
+    background: #0f1013;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  #topbar button {
+    background: #2b6fff;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  #topbar .label {
+    color: #888;
+    font-size: 12px;
+  }
+
+  #topbar .current {
+    color: #7fdc7f;
+    font-size: 12px;
+    margin-left: auto;
+  }
+
+  #layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    height: calc(100% - 52px);
+    gap: 6px;
+    padding: 6px;
+    box-sizing: border-box;
+  }
+
+  #streamPane {
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  #sidePane {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+  }
+
+  #chatPane, #controlPane {
+    background: #111;
+    border-radius: 6px;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+  }
+
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  .placeholder {
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+</style>
+</head>
+<body>
+
+  <div id="topbar">
+    <span class="label">YouTube link / video ID:</span>
+    <input id="ytInput" placeholder="e.g. https://youtube.com/watch?v=XXXXXXXXXXX or just the video ID" />
+    <button onclick="applyVideo()">Load</button>
+    <span class="current" id="currentLabel"></span>
+  </div>
+
+  <div id="layout">
+    <div id="streamPane">
+      <div class="placeholder" id="streamPlaceholder">Paste your YouTube stream link above and click Load.</div>
+    </div>
+    <div id="sidePane">
+      <div id="chatPane">
+        <div class="placeholder" id="chatPlaceholder">Chat will appear here once a stream is loaded.</div>
+      </div>
+      <div id="controlPane">
+        <iframe src="/control.html"></iframe>
+      </div>
+    </div>
+  </div>
+
+<script>
+  function extractVideoId(input) {
+    input = (input || '').trim();
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/|youtube\.com\/embed\/)([\w-]{11})/
+    ];
+    for (const p of patterns) {
+      const m = input.match(p);
+      if (m) return m[1];
+    }
+    if (/^[\w-]{11}$/.test(input)) return input;
+    return null;
+  }
+
+  function loadVideo(videoId) {
+    const streamPane = document.getElementById('streamPane');
+    const chatPane = document.getElementById('chatPane');
+    const host = window.location.hostname || 'localhost';
+
+    streamPane.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    chatPane.innerHTML = `<iframe src="https://www.youtube.com/live_chat?v=${videoId}&embed_domain=${host}"></iframe>`;
+
+    document.getElementById('currentLabel').textContent = 'Loaded: ' + videoId;
+    localStorage.setItem('dashboard_yt_video_id', videoId);
+  }
+
+  function applyVideo() {
+    const raw = document.getElementById('ytInput').value;
+    const id = extractVideoId(raw);
+    if (!id) {
+      alert("Couldn't find a valid YouTube video ID in that link. Paste the full stream URL or just the 11-character video ID.");
+      return;
+    }
+    loadVideo(id);
+  }
+
+  document.getElementById('ytInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyVideo();
+  });
+
+  // restore last used video on reload
+  const saved = localStorage.getItem('dashboard_yt_video_id');
+  if (saved) {
+    document.getElementById('ytInput').value = saved;
+    loadVideo(saved);
+  }
+</script>
+
+</body>
+</html>

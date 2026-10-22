@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Score Control</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #111318;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px;
+    gap: 10px;
+    height: 100vh;
+    box-sizing: border-box;
+  }
+  h2 { margin: 0; font-size: 15px; color: #9fb4ff; text-align: center; }
+
+  .labels-row { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .team-label-input {
+    background: #1c1f26;
+    border: 1px solid #333;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    width: 110px;
+    text-align: center;
+  }
+
+  .bestof-row { display: flex; align-items: center; gap: 6px; justify-content: center; }
+  .bestof-label { color: #aaa; font-size: 12px; }
+  .bestof-btn {
+    width: 32px;
+    height: 28px;
+    font-size: 13px;
+    background: #1c1f26;
+    border: 2px solid #333;
+    color: #ccc;
+    padding: 0;
+  }
+  .bestof-btn.active {
+    border-color: #2b6fff;
+    background: #22304f;
+    color: #fff;
+  }
+
+  .row { display: flex; gap: 16px; justify-content: center; }
+  .side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #1c1f26;
+    border-radius: 8px;
+    padding: 8px 14px;
+    flex: 1;
+    max-width: 160px;
+  }
+  .side h3 { margin: 0 0 4px; font-size: 11px; color: #aaa; font-weight: normal; text-align: center; }
+  .score-num { font-size: 32px; font-weight: 900; margin: 2px 0; min-width: 40px; text-align: center; line-height: 1; }
+  .btns { display: flex; gap: 8px; }
+  button {
+    background: #2b6fff;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    width: 34px;
+    height: 30px;
+    cursor: pointer;
+  }
+  button.minus { background: #444a58; }
+  button:active { transform: scale(0.95); }
+  .reset {
+    background: #7a1f1f;
+    width: auto;
+    height: auto;
+    padding: 6px 14px;
+    font-size: 12px;
+    align-self: center;
+  }
+
+  .section-title { margin: 2px 0 0; font-size: 11px; color: #9fb4ff; text-transform: uppercase; letter-spacing: 1px; text-align: center; }
+  .team-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    align-content: flex-start;
+  }
+  .team-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    text-align: center;
+    background: #1c1f26;
+    border: 2px solid #333;
+    border-radius: 6px;
+    color: #ddd;
+    width: auto;
+    height: auto;
+  }
+  .team-btn.active {
+    border-color: #2b6fff;
+    background: #22304f;
+    color: #fff;
+  }
+  .empty-note { color: #666; font-size: 12px; text-align: center; padding: 4px 0; }
+
+  .bottom-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .shutdown-btn {
+    background: #3a0f0f;
+    border: 1px solid #7a1f1f;
+    width: auto;
+    height: auto;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #ccc;
+  }
+  .hint { font-size: 10px; color: #666; text-align: center; line-height: 1.4; }
+  kbd {
+    background: #333; padding: 1px 5px; border-radius: 4px; font-size: 10px;
+  }
+
+  /* ---------- tabs ---------- */
+
+  .tab-row { display: flex; gap: 6px; justify-content: center; }
+  .tab-btn {
+    background: #1c1f26;
+    border: 2px solid #333;
+    color: #aaa;
+    width: auto;
+    height: auto;
+    padding: 8px 16px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .tab-btn.active {
+    border-color: #2b6fff;
+    background: #22304f;
+    color: #fff;
+  }
+  .tab-panel { display: none; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+  .tab-panel.active { display: flex; }
+
+  /* ---------- intro tab ---------- */
+
+  .timer-row { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .timer-row input[type="datetime-local"] {
+    background: #1c1f26;
+    border: 1px solid #333;
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+  .set-timer-btn {
+    background: #2b6fff;
+    width: auto;
+    height: auto;
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+  .clear-timer-btn {
+    background: #444a58;
+    width: auto;
+    height: auto;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .map-picker-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .map-picker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .map-picker label { font-size: 10px; color: #888; }
+  .map-picker select {
+    background: #1c1f26;
+    border: 1px solid #333;
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    width: 140px;
+  }
+</style>
+</head>
+<body>
+
+  <h2>Stream Control</h2>
+
+  <div class="tab-row">
+    <button class="tab-btn active" id="tab-btn-score" onclick="showTab('score')">Score</button>
+    <button class="tab-btn" id="tab-btn-intro" onclick="showTab('intro')">Intro / Timer</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-score">
+    <div class="labels-row">
+      <input class="team-label-input" id="teamLabel" placeholder="Our team (e.g. UB)" />
+      <input class="team-label-input" id="opponentLabel" placeholder="Opponent" />
+    </div>
+
+    <div class="bestof-row">
+      <span class="bestof-label">Best of:</span>
+      <button class="bestof-btn" data-bo="1" onclick="setBestOf(1)">1</button>
+      <button class="bestof-btn" data-bo="3" onclick="setBestOf(3)">3</button>
+      <button class="bestof-btn" data-bo="5" onclick="setBestOf(5)">5</button>
+    </div>
+
+    <div class="row">
+      <div class="side">
+        <h3>US MAPS WON</h3>
+        <div class="score-num" id="usVal">0</div>
+        <div class="btns">
+          <button class="minus" onclick="adjust('us', -1)">−</button>
+          <button onclick="adjust('us', 1)">+</button>
+        </div>
+      </div>
+      <div class="side">
+        <h3>THEM MAPS WON</h3>
+        <div class="score-num" id="themVal">0</div>
+        <div class="btns">
+          <button class="minus" onclick="adjust('them', -1)">−</button>
+          <button onclick="adjust('them', 1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="reset" onclick="resetScore()">Reset Score</button>
+
+    <div class="section-title">Active Team / Comp</div>
+    <div class="bestof-row" title="Which team the LIVE roster shows. Blue starts on defense, Red on attack. The enemy team only appears once the match loads (Riot hides it during agent select).">
+      <span class="bestof-label">LIVE shows:</span>
+      <button class="bestof-btn side-btn" data-side="ours" onclick="setLiveSide('ours')">Ours</button>
+      <button class="bestof-btn side-btn" data-side="enemy" onclick="setLiveSide('enemy')">Enemy</button>
+      <button class="bestof-btn side-btn" data-side="blue" onclick="setLiveSide('blue')">Blue</button>
+      <button class="bestof-btn side-btn" data-side="red" onclick="setLiveSide('red')">Red</button>
+    </div>
+    <div class="team-list" id="teamList">
+      <div class="empty-note">No teams found in options.txt</div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-intro">
+    <div class="section-title">Countdown Timer</div>
+    <div class="timer-row">
+      <input type="datetime-local" id="timerInput" />
+      <button class="set-timer-btn" onclick="setTimer()">Set</button>
+      <button class="clear-timer-btn" onclick="clearTimer()">Clear</button>
+    </div>
+
+    <div class="section-title">Match Format</div>
+    <div class="bestof-row">
+      <button class="bestof-btn" data-fmt="1" onclick="setFormat(1)">Bo1</button>
+      <button class="bestof-btn" data-fmt="3" onclick="setFormat(3)">Bo3</button>
+    </div>
+
+    <div class="section-title">Maps</div>
+    <div class="map-picker-row" id="mapPickerRow"></div>
+
+    <div class="empty-note">
+      Team names/logos use the "Our team" / "Opponent" fields from the Score tab.
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="hint">
+      <kbd>↑</kbd>/<kbd>↓</kbd> US &nbsp; <kbd>→</kbd>/<kbd>←</kbd> THEM
+    </div>
+    <button class="shutdown-btn" onclick="shutdownServer()">Shut Down Server</button>
+  </div>
+
+<script>
+  let current = { teamLabel: 'UB', opponentLabel: 'OPP', us: 0, them: 0, bestOf: 3 };
+
+  function render() {
+    document.getElementById('usVal').textContent = current.us;
+    document.getElementById('themVal').textContent = current.them;
+    document.getElementById('teamLabel').value = current.teamLabel;
+    document.getElementById('opponentLabel').value = current.opponentLabel;
+    document.querySelectorAll('.bestof-btn[data-bo]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.bo) === (current.bestOf || 3));
+    });
+  }
+
+  async function push(partial) {
+    const res = await fetch('/api/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    });
+    current = await res.json();
+    render();
+  }
+
+  function adjust(side, delta) {
+    const next = Math.max(0, (current[side] || 0) + delta);
+    push({ [side]: next });
+  }
+
+  function resetScore() {
+    push({ us: 0, them: 0 });
+  }
+
+  function setBestOf(n) {
+    push({ bestOf: n });
+  }
+
+  document.getElementById('teamLabel').addEventListener('change', (e) => {
+    push({ teamLabel: e.target.value });
+  });
+  document.getElementById('opponentLabel').addEventListener('change', (e) => {
+    push({ opponentLabel: e.target.value });
+  });
+
+  fetch('/api/score').then(r => r.json()).then(s => { current = s; render(); });
+
+  // ---------- team / comp switching ----------
+
+  let latestTeams = [];
+  let latestActiveTitle = null;
+
+  function renderTeamList() {
+    const container = document.getElementById('teamList');
+    if (!latestTeams.length) {
+      container.innerHTML = '<div class="empty-note">No teams found in options.txt</div>';
+      return;
+    }
+    container.innerHTML = '';
+    latestTeams.forEach((team) => {
+      const btn = document.createElement('button');
+      btn.className = 'team-btn' + (team.title === latestActiveTitle ? ' active' : '');
+      btn.textContent = team.live && team.map ? `${team.title} · ${team.map}` : team.title;
+      btn.onclick = () => setActiveTeam(team.title);
+      container.appendChild(btn);
+    });
+  }
+
+  async function setActiveTeam(title) {
+    const res = await fetch('/api/active', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    });
+    const updated = await res.json();
+    latestActiveTitle = updated.title;
+    renderTeamList();
+  }
+
+  fetch('/api/teams').then(r => r.json()).then(teams => { latestTeams = teams; renderTeamList(); });
+  fetch('/api/active').then(r => r.json()).then(a => {
+    latestActiveTitle = a.title;
+    // if nothing has been chosen yet, default to the first team as soon as we know it
+    if (latestActiveTitle == null && latestTeams.length) {
+      setActiveTeam(latestTeams[0].title);
+    } else {
+      renderTeamList();
+    }
+  });
+
+  const teamEvents = new EventSource('/events');
+  teamEvents.addEventListener('teams', (e) => {
+    latestTeams = JSON.parse(e.data);
+    if (latestActiveTitle == null && latestTeams.length) {
+      setActiveTeam(latestTeams[0].title);
+    } else {
+      renderTeamList();
+    }
+  });
+  teamEvents.addEventListener('active', (e) => {
+    latestActiveTitle = JSON.parse(e.data).title;
+    renderTeamList();
+  });
+
+  // ---------- which team the LIVE (from Valorant) roster follows ----------
+
+  function renderLiveSide(side) {
+    document.querySelectorAll('.side-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.side === side);
+    });
+  }
+
+  async function setLiveSide(side) {
+    const res = await fetch('/api/live-side', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ side }),
+    });
+    renderLiveSide((await res.json()).side);
+  }
+
+  teamEvents.addEventListener('liveSide', (e) => renderLiveSide(JSON.parse(e.data).side));
+
+  function shutdownServer() {
+    if (!confirm('Shut down the overlay server? The overlay in OBS will stop updating until you restart it.')) return;
+    fetch('/api/shutdown', { method: 'POST' }).finally(() => {
+      document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#888;font-family:Arial,sans-serif;">Server stopped. Run start.bat (or npm run dev) to restart it.</div>';
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement && (document.activeElement.id === 'teamLabel' || document.activeElement.id === 'opponentLabel')) return;
+    if (e.key === 'ArrowUp') adjust('us', 1);
+    if (e.key === 'ArrowDown') adjust('us', -1);
+    if (e.key === 'ArrowRight') adjust('them', 1);
+    if (e.key === 'ArrowLeft') adjust('them', -1);
+  });
+
+  // ---------- tabs ----------
+
+  function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach((el) => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('tab-btn-' + name).classList.add('active');
+  }
+
+  // ---------- intro / timer tab ----------
+
+  let currentIntro = { targetTime: null, format: 3, maps: ['', '', ''] };
+  let availableMaps = [];
+
+  function localDatetimeInputValue(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function pushIntro(partial) {
+    const res = await fetch('/api/intro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    });
+    currentIntro = await res.json();
+    renderIntroTab();
+  }
+
+  function setTimer() {
+    const val = document.getElementById('timerInput').value;
+    if (!val) return;
+    pushIntro({ targetTime: new Date(val).toISOString() });
+  }
+
+  function clearTimer() {
+    document.getElementById('timerInput').value = '';
+    pushIntro({ targetTime: null });
+  }
+
+  function setFormat(n) {
+    pushIntro({ format: n });
+  }
+
+  function setMap(index, value) {
+    const maps = [...(currentIntro.maps || ['', '', ''])];
+    while (maps.length < 3) maps.push('');
+    maps[index] = value;
+    pushIntro({ maps });
+  }
+
+  function renderMapPickers() {
+    const row = document.getElementById('mapPickerRow');
+    const format = currentIntro.format || 3;
+    const count = format === 1 ? 1 : 3;
+    row.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'map-picker';
+      const label = document.createElement('label');
+      label.textContent = count === 1 ? 'Map' : ('Map ' + (i + 1));
+      const select = document.createElement('select');
+      const blankOpt = document.createElement('option');
+      blankOpt.value = '';
+      blankOpt.textContent = '-- choose --';
+      select.appendChild(blankOpt);
+      availableMaps.forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        if ((currentIntro.maps || [])[i] === m) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.onchange = () => setMap(i, select.value);
+      wrap.appendChild(label);
+      wrap.appendChild(select);
+      row.appendChild(wrap);
+    }
+  }
+
+  function renderIntroTab() {
+    document.getElementById('timerInput').value = localDatetimeInputValue(currentIntro.targetTime);
+    document.querySelectorAll('#tab-intro .bestof-btn').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.fmt) === (currentIntro.format || 3));
+    });
+    renderMapPickers();
+  }
+
+  fetch('/api/maps').then(r => r.json()).then(maps => { availableMaps = maps; renderMapPickers(); });
+  fetch('/api/intro').then(r => r.json()).then(intro => { currentIntro = intro; renderIntroTab(); });
+
+  const introEvents = new EventSource('/events');
+  introEvents.addEventListener('intro', (e) => {
+    currentIntro = JSON.parse(e.data);
+    renderIntroTab();
+  });
+</script>
+
+</body>
+</html>
+

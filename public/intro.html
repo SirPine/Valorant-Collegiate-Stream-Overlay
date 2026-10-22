@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Intro Overlay</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 1920px;
+    height: 1080px;
+    background: transparent;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
+
+  #bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    z-index: 0;
+  }
+
+  .box {
+    position: absolute;
+    box-sizing: border-box;
+  }
+
+  /* ---------- timer ---------- */
+
+  #timer-box {
+    left: 20px;
+    top: 20px;
+    width: 498px;
+    height: 146px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #timer-text {
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 64px;
+    letter-spacing: 2px;
+  }
+
+  /* ---------- team logos ---------- */
+
+  .logo-box {
+    top: 287px;
+    width: 397px;
+    height: 397px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #logo-left { left: 282px; }
+  #logo-right { left: 1240px; }
+
+  .logo-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  .team-name {
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    top: 100%;
+    margin-top: 10px;
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 30px;
+    text-align: center;
+    text-shadow:
+      -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000,
+      0 2px 6px rgba(0,0,0,0.6);
+  }
+
+  /* ---------- map slots ---------- */
+
+  .map-box {
+    top: 780px;
+    width: 215px;
+    height: 215px;
+  }
+
+  .map-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+
+  .map-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 6px 4px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 15px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  #map-box-0 { left: 524px; }
+  #map-box-1 { left: 853px; }
+  #map-box-2 { left: 1180px; }
+
+  .hidden { visibility: hidden; }
+</style>
+</head>
+<body>
+
+  <img id="bg" src="/intro-background.png" alt="" />
+
+  <div class="box" id="timer-box">
+    <span id="timer-text">00:00:00</span>
+  </div>
+
+  <div class="box logo-box" id="logo-left">
+    <img id="logo-left-img" src="" alt="" />
+    <div class="team-name" id="name-left"></div>
+  </div>
+
+  <div class="box logo-box" id="logo-right">
+    <img id="logo-right-img" src="" alt="" />
+    <div class="team-name" id="name-right"></div>
+  </div>
+
+  <div class="box map-box" id="map-box-0">
+    <img id="map-img-0" src="" alt="" />
+    <div class="map-name" id="map-name-0"></div>
+  </div>
+  <div class="box map-box" id="map-box-1">
+    <img id="map-img-1" src="" alt="" />
+    <div class="map-name" id="map-name-1"></div>
+  </div>
+  <div class="box map-box" id="map-box-2">
+    <img id="map-img-2" src="" alt="" />
+    <div class="map-name" id="map-name-2"></div>
+  </div>
+
+<script>
+  let targetTime = null;
+
+  function pad(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function renderTimer() {
+    const el = document.getElementById('timer-text');
+    if (!targetTime) {
+      el.textContent = '00:00:00';
+      return;
+    }
+    const diffMs = new Date(targetTime).getTime() - Date.now();
+    if (diffMs <= 0) {
+      el.textContent = '00:00:00';
+      return;
+    }
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    el.textContent = days > 0
+      ? `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+      : `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
+
+  setInterval(renderTimer, 1000);
+
+  function loadTeamLogo(imgId, nameId, name) {
+    const img = document.getElementById(imgId);
+    const nameEl = document.getElementById(nameId);
+    nameEl.textContent = name || '';
+    if (!name) {
+      img.style.display = 'none';
+      return;
+    }
+    const url = '/team-logo/' + encodeURIComponent(name) + '?t=' + Date.now();
+    img.onerror = () => {
+      img.style.display = 'none';
+      console.error('[intro overlay] team logo not found:', name, '- tried', url, '- check assets/teams/ for a matching file (any case, .png/.jpg/.jpeg/.webp)');
+    };
+    img.onload = () => { img.style.display = 'block'; };
+    img.src = url;
+  }
+
+  function loadMap(index, mapName) {
+    const img = document.getElementById('map-img-' + index);
+    const nameEl = document.getElementById('map-name-' + index);
+    nameEl.textContent = mapName || '';
+    if (!mapName) {
+      img.style.display = 'none';
+      return;
+    }
+    const url = '/map-image/' + encodeURIComponent(mapName) + '?t=' + Date.now();
+    img.onerror = () => {
+      img.style.display = 'none';
+      console.error('[intro overlay] map image not found:', mapName, '- tried', url, '- check assets/maps/ for a matching file (any case, .png/.jpg/.jpeg/.webp)');
+    };
+    img.onload = () => { img.style.display = 'block'; };
+    img.src = url;
+  }
+
+  function renderIntro(intro) {
+    targetTime = intro.targetTime;
+    renderTimer();
+
+    const format = intro.format || 3;
+    const maps = intro.maps || [];
+
+    if (format === 1) {
+      // single map: show only the middle slot, hide the other two
+      document.getElementById('map-box-0').classList.add('hidden');
+      document.getElementById('map-box-2').classList.add('hidden');
+      document.getElementById('map-box-1').classList.remove('hidden');
+      loadMap(1, maps[0]);
+    } else {
+      document.getElementById('map-box-0').classList.remove('hidden');
+      document.getElementById('map-box-1').classList.remove('hidden');
+      document.getElementById('map-box-2').classList.remove('hidden');
+      loadMap(0, maps[0]);
+      loadMap(1, maps[1]);
+      loadMap(2, maps[2]);
+    }
+  }
+
+  function renderScore(score) {
+    loadTeamLogo('logo-left-img', 'name-left', score.teamLabel);
+    loadTeamLogo('logo-right-img', 'name-right', score.opponentLabel);
+  }
+
+  // initial load
+  fetch('/api/intro').then(r => r.json()).then(renderIntro).catch(() => {});
+  fetch('/api/score').then(r => r.json()).then(renderScore).catch(() => {});
+
+  // live updates
+  const es = new EventSource('/events');
+  es.addEventListener('intro', (e) => renderIntro(JSON.parse(e.data)));
+  es.addEventListener('score', (e) => renderScore(JSON.parse(e.data)));
+</script>
+
+</body>
+</html>

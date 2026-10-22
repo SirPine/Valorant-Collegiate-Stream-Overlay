@@ -1,0 +1,8 @@
+node_modules/
+
+# Saved control-panel state - changes constantly while streaming, and the server
+# falls back to defaults when these are missing.
+score.json
+active.json
+intro.json
+live-side.json
