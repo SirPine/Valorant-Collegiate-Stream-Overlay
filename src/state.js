@@ -1,24 +1,27 @@
-// Everything the control panel saves (score, intro scene, which team the roster follows) lives
+// Everything the control panel saves (score, intro scene, whether the teams are switched) lives
 // in one file, cache/state.json, so it survives a restart. Missing sections fall back to defaults.
 
 const fs = require('fs');
 const { CACHE_DIR, STATE_PATH } = require('./paths');
 
-// Which team the live roster follows: 'ours' | 'enemy' | 'blue' | 'red'
-const LIVE_SIDES = ['ours', 'enemy', 'blue', 'red'];
-
 const DEFAULT_STATE = {
   score: { teamLabel: 'UB', opponentLabel: 'OPP', us: 0, them: 0, bestOf: 3 },
   intro: { targetTime: null, format: 3, maps: ['', '', ''] },
-  liveSide: { side: 'ours' },
+  // swapped: false = your in-game team on the left (Blue when spectating), true = on the right
+  sides: { swapped: false },
 };
 
+// only known sections are kept, so settings that no longer exist drop out of the file
 function readState() {
+  let saved = {};
   try {
-    return { ...DEFAULT_STATE, ...JSON.parse(fs.readFileSync(STATE_PATH, 'utf-8')) };
+    saved = JSON.parse(fs.readFileSync(STATE_PATH, 'utf-8'));
   } catch (e) {
-    return { ...DEFAULT_STATE };
+    // no file yet - all defaults
   }
+  const state = {};
+  for (const section of Object.keys(DEFAULT_STATE)) state[section] = saved[section] || DEFAULT_STATE[section];
+  return state;
 }
 
 function writeState(section, value) {
@@ -29,11 +32,10 @@ function writeState(section, value) {
 }
 
 module.exports = {
-  LIVE_SIDES,
   readScore: () => readState().score,
   writeScore: (score) => writeState('score', score),
   readIntro: () => readState().intro,
   writeIntro: (intro) => writeState('intro', intro),
-  readLiveSide: () => readState().liveSide,
-  writeLiveSide: (liveSide) => writeState('liveSide', liveSide),
+  readSides: () => readState().sides,
+  writeSides: (sides) => writeState('sides', sides),
 };

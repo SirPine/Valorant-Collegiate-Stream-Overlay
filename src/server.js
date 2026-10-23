@@ -5,7 +5,7 @@ const express = require('express');
 const paths = require('./paths');
 const state = require('./state');
 const { broadcast, addClient } = require('./events');
-const { getLiveRoster, pollLive, startLiveRoster } = require('./live-roster');
+const { getLiveRoster, refreshSides, startLiveRoster } = require('./live-roster');
 const { listImageNames, findImageFile, sendApiImage } = require('./images');
 const { getAgentIconUrl, getMapList, getMapSplashUrl } = require('./valorant-api');
 
@@ -25,7 +25,6 @@ app.get('/events', (req, res) =>
     roster: getLiveRoster(),
     score: state.readScore(),
     intro: state.readIntro(),
-    liveSide: state.readLiveSide(),
   })
 );
 
@@ -44,15 +43,12 @@ app.post('/api/score', (req, res) => {
 
 app.get('/api/roster', (req, res) => res.json(getLiveRoster()));
 
-app.get('/api/live-side', (req, res) => res.json(state.readLiveSide()));
-
-app.post('/api/live-side', (req, res) => {
-  if (!state.LIVE_SIDES.includes(req.body.side)) return res.status(400).json({ error: 'unknown side' });
-  const updated = { side: req.body.side };
-  state.writeLiveSide(updated);
-  broadcast('liveSide', updated);
+// "Switch Teams": swap which in-game team shows on the left (your team) and right (opponent)
+app.post('/api/switch-teams', (req, res) => {
+  const updated = { swapped: !state.readSides().swapped };
+  state.writeSides(updated);
+  refreshSides();
   res.json(updated);
-  pollLive(); // swap the roster right away instead of waiting for the next tick
 });
 
 // ---------- intro scene (timer, team logos, map picks) ----------

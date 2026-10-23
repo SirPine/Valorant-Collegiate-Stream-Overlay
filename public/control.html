@@ -93,23 +93,47 @@
   .roster {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     overflow-y: auto;
     flex: 1;
     min-height: 0;
   }
   .roster-map { font-size: 12px; color: #9fb4ff; text-align: center; }
+  .roster-teams { display: flex; gap: 8px; }
+  .roster-team { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .roster-team-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    padding: 2px 4px;
+  }
+  .roster-team-header img { width: 20px; height: 20px; object-fit: contain; }
+  .roster-team-header .side-tag { margin-left: auto; color: #666; font-size: 10px; font-weight: normal; }
   .roster-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: #1c1f26;
     border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 13px;
+    padding: 4px 6px;
+    font-size: 12px;
+    min-height: 24px;
   }
-  .roster-row img { width: 24px; height: 24px; border-radius: 4px; }
-  .roster-row .agent { margin-left: auto; color: #888; font-size: 11px; }
+  .roster-row img { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; }
+  .roster-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .roster-row.waiting { color: #555; font-style: italic; }
+  .switch-btn {
+    background: #22304f;
+    border: 2px solid #2b6fff;
+    width: auto;
+    height: auto;
+    padding: 6px 14px;
+    font-size: 12px;
+    align-self: center;
+  }
   .empty-note { color: #666; font-size: 12px; text-align: center; padding: 4px 0; }
 
   .bottom-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
@@ -241,13 +265,8 @@
     <button class="reset" onclick="resetScore()">Reset Score</button>
 
     <div class="section-title">Live Roster</div>
-    <div class="bestof-row" title="Which team the roster shows. Blue starts on defense, Red on attack. The enemy team only appears once the match loads (Riot hides it during agent select).">
-      <span class="bestof-label">Show:</span>
-      <button class="bestof-btn side-btn" data-side="ours" onclick="setLiveSide('ours')">Ours</button>
-      <button class="bestof-btn side-btn" data-side="enemy" onclick="setLiveSide('enemy')">Enemy</button>
-      <button class="bestof-btn side-btn" data-side="blue" onclick="setLiveSide('blue')">Blue</button>
-      <button class="bestof-btn side-btn" data-side="red" onclick="setLiveSide('red')">Red</button>
-    </div>
+    <button class="switch-btn" onclick="switchTeams()"
+      title="Swap which in-game team shows on the left (your team) and the right (opponent)">&#8644; Switch Teams</button>
     <div class="roster" id="roster">
       <div class="empty-note">Not in a match</div>
     </div>
@@ -293,6 +312,7 @@
     document.querySelectorAll('.bestof-btn[data-bo]').forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.bo) === (current.bestOf || 3));
     });
+    renderRoster(latestRoster); // team names/logos in the roster follow the labels above
   }
 
   async function push(partial) {
@@ -328,11 +348,56 @@
   fetch('/api/score').then(r => r.json()).then(s => { current = s; render(); });
 
   // ---------- live roster (read-only - comes straight from the Valorant client) ----------
+  // Left = your team ("Our team" above), right = the opponent - the same sides as the overlay.
+
+  let latestRoster = { map: '', left: [], right: [] };
+
+  function teamColumn(teamName, side, players) {
+    const col = document.createElement('div');
+    col.className = 'roster-team';
+
+    const header = document.createElement('div');
+    header.className = 'roster-team-header';
+    const logo = document.createElement('img');
+    logo.onerror = () => { logo.style.visibility = 'hidden'; };
+    if (teamName) logo.src = '/team-logo/' + encodeURIComponent(teamName);
+    else logo.style.visibility = 'hidden';
+    const name = document.createElement('span');
+    name.textContent = teamName || '(no name)';
+    const sideLabel = document.createElement('span');
+    sideLabel.className = 'side-tag';
+    sideLabel.textContent = side;
+    header.append(logo, name, sideLabel);
+    col.appendChild(header);
+
+    if (!players.length) {
+      // Riot hides the other team during agent select
+      const row = document.createElement('div');
+      row.className = 'roster-row waiting';
+      row.textContent = 'Waiting for match to load...';
+      col.appendChild(row);
+    }
+    players.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'roster-row';
+      row.title = p.agent ? `${p.player} - ${p.agent}` : `${p.player} - picking...`;
+      const icon = document.createElement('img');
+      if (p.agent) icon.src = '/agent-icon/' + encodeURIComponent(p.agent);
+      else icon.style.visibility = 'hidden';
+      const label = document.createElement('span');
+      label.className = 'name';
+      label.textContent = p.player;
+      row.append(icon, label);
+      col.appendChild(row);
+    });
+    return col;
+  }
 
   function renderRoster(roster) {
+    latestRoster = roster;
     const container = document.getElementById('roster');
     container.innerHTML = '';
-    if (!roster.players.length) {
+    if (!roster.left.length && !roster.right.length) {
       container.innerHTML = '<div class="empty-note">Not in a match</div>';
       return;
     }
@@ -342,43 +407,22 @@
       map.textContent = roster.map;
       container.appendChild(map);
     }
-    roster.players.forEach((p) => {
-      const row = document.createElement('div');
-      row.className = 'roster-row';
-      const icon = document.createElement('img');
-      if (p.agent) icon.src = '/agent-icon/' + encodeURIComponent(p.agent);
-      else icon.style.visibility = 'hidden';
-      const name = document.createElement('span');
-      name.textContent = p.player;
-      const agent = document.createElement('span');
-      agent.className = 'agent';
-      agent.textContent = p.agent || 'picking...';
-      row.append(icon, name, agent);
-      container.appendChild(row);
-    });
+    const teams = document.createElement('div');
+    teams.className = 'roster-teams';
+    teams.append(
+      teamColumn(current.teamLabel, 'LEFT', roster.left),
+      teamColumn(current.opponentLabel, 'RIGHT', roster.right)
+    );
+    container.appendChild(teams);
+  }
+
+  function switchTeams() {
+    // the new roster arrives through the 'roster' event below, same as for the overlay
+    fetch('/api/switch-teams', { method: 'POST' });
   }
 
   const teamEvents = new EventSource('/events');
   teamEvents.addEventListener('roster', (e) => renderRoster(JSON.parse(e.data)));
-
-  // ---------- which team the live roster follows ----------
-
-  function renderLiveSide(side) {
-    document.querySelectorAll('.side-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.side === side);
-    });
-  }
-
-  async function setLiveSide(side) {
-    const res = await fetch('/api/live-side', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ side }),
-    });
-    renderLiveSide((await res.json()).side);
-  }
-
-  teamEvents.addEventListener('liveSide', (e) => renderLiveSide(JSON.parse(e.data).side));
 
   function shutdownServer() {
     if (!confirm('Shut down the overlay server? The overlay in OBS will stop updating until you restart it.')) return;

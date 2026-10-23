@@ -115,21 +115,12 @@ async function getCoreGame(ctx) {
   };
 }
 
-// side: 'ours' | 'enemy' | 'blue' | 'red'. "Ours" is the team you're on. When spectating
-// you're not on a team, so "ours" means Blue and "enemy" means Red.
-function pickTeamId(game, side) {
-  if (side === 'blue') return 'Blue';
-  if (side === 'red') return 'Red';
-
-  const ours = game.myTeam || 'Blue';
-  if (side === 'enemy') return ours === 'Blue' ? 'Red' : 'Blue';
-  return ours;
-}
-
 // ---------- main entry point ----------
 
-// Returns { matchId, map, players: [{ player, agent }] }, or null when not in a match.
-async function fetchLiveRoster(side = 'ours') {
+// Returns { matchId, map, myTeam, teams: { Blue: [{ player, agent }], Red: [...] } }, or null
+// when not in a match. myTeam is undefined when spectating. During agent select only your own
+// team is known.
+async function fetchLiveRoster() {
   const lock = readLockfile();
   if (!lock) return null;
 
@@ -160,20 +151,23 @@ async function fetchLiveRoster(side = 'ours') {
   const game = (await getPregame(ctx)) || (await getCoreGame(ctx));
   if (!game) return null; // in menus / lobby
 
-  // The chosen team may not be visible yet (e.g. the enemy during agent select) - show an
-  // empty roster until the match loads rather than stale names from last game.
-  const members = game.teams[pickTeamId(game, side)] || [];
+  const puuids = Object.values(game.teams).flat().map((p) => p.puuid);
+  const names = await lookupNames(ctx, puuids);
+  const nameOf = Object.fromEntries(puuids.map((id, i) => [id, names[i]]));
 
-  const names = await lookupNames(ctx, members.map((p) => p.puuid));
-  const players = members.map((p, i) => ({ player: names[i], agent: agentNameForId(p.characterId) }));
-
-  // alphabetical, so the rows don't reshuffle between agent select and the live game
-  players.sort((a, b) => a.player.localeCompare(b.player, undefined, { sensitivity: 'base' }));
+  const teams = {};
+  for (const [teamId, members] of Object.entries(game.teams)) {
+    teams[teamId] = members
+      .map((p) => ({ player: nameOf[p.puuid], agent: agentNameForId(p.characterId) }))
+      // alphabetical, so the rows don't reshuffle between agent select and the live game
+      .sort((a, b) => a.player.localeCompare(b.player, undefined, { sensitivity: 'base' }));
+  }
 
   return {
     matchId: game.matchId,
     map: mapNameForId(game.mapId),
-    players,
+    myTeam: game.myTeam,
+    teams,
   };
 }
 

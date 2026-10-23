@@ -71,20 +71,19 @@ than opening it in a separate browser tab.
 
 The roster comes straight from the game. There's nothing to type in. Valorant has to be running
 **on the same PC as this server** (you're playing or spectating):
-- When agent select starts, the 5 player rows fill in with in-game names. Agents appear as players
-  hover and lock them, and stay correct once the match loads.
+- Both teams are shown: **your team in the left column, the opponent in the right column**, 5
+  players each. The names come from the "Our team" / "Opponent" boxes on the Score tab, and each
+  team's logo from `assets/teams` appears in the banner at the top of its side.
+- When agent select starts, the rows fill in with in-game names. Agents appear as players hover and
+  lock them, and stay correct once the match loads. Riot hides the other team during agent select,
+  so the right column fills in once the match loads.
 - Players are listed alphabetically, so the rows don't reshuffle between agent select and the live game.
 - Outside a match (menus, lobby, Valorant closed) the rows are empty. They clear a few seconds after
   a match ends.
-- The **Live Roster** section of the control panel shows the map and each player's agent, so you
-  can check what's on stream.
-- The **Show:** buttons pick which team the roster follows:
-  - **Ours:** your team. When spectating you're not on a team, so this means Blue.
-  - **Enemy:** the other team. When spectating, this means Red.
-  - **Blue / Red:** a fixed team (Blue starts on defense, Red on attack).
-
-  Riot hides the enemy team during agent select, so Enemy (or the other color) stays blank until the
-  match loads.
+- The **Live Roster** section of the control panel shows the map and both teams' players and
+  agents, under each team's name and logo, on the same sides as the overlay.
+- By default the left side is the in-game team you're on (Blue when spectating). If the teams are on
+  the wrong sides, click **Switch Teams**. The overlay updates instantly, and the choice is saved.
 
 This uses Riot's unofficial local client API (read-only, the same one tools like VRY use) plus
 valorant-api.com for agent and map names, so it needs internet access and may break if Riot changes
@@ -133,12 +132,12 @@ control panel (those fields are shared between both scenes, so you only set them
   window, the server stops; no timers, no background-tab tricks, nothing else to think about.
 - `start.bat` checks port 3000 before starting, so you can't accidentally end up with two servers
   running at once.
-- The 5 player rows are positioned to match the placeholder boxes measured
+- The player rows (5 per side) are positioned to match the placeholder boxes measured
   from your original `static.png` layout. If you change the static background's layout, edit the
   `top`/`left` px values in `public/overlay.html` (`.player-row`) to match.
 - If an agent icon or map image doesn't show up, delete `cache/agent-icons` or `cache/maps` to force
   them to download again. Don't delete the whole `cache` folder unless you also want to reset your settings.
-- Everything you set in the control panel (score, team labels, intro timer and maps, the Show: choice)
+- Everything you set in the control panel (score, team labels, intro timer and maps, Switch Teams)
   is saved to `cache/state.json`, so it survives a restart. Delete it to reset everything to defaults.
 
 ## Project layout
