@@ -14,6 +14,14 @@
     font-family: 'Arial Narrow', 'Arial', sans-serif;
   }
 
+  :root {
+    /* crisp dark outline around white text: unblurred shadows in 8 directions */
+    --outline:
+      -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000,
+      -2px 0 0 #000, 2px 0 0 #000,
+      -2px 2px 0 #000, 0 2px 0 #000, 2px 2px 0 #000;
+  }
+
   /* everything is laid out on this 1920x1080 canvas; scale.js fits it to the window */
   #stage {
     position: absolute;
@@ -69,7 +77,6 @@
     font-size: 42px;
     text-transform: none;
     letter-spacing: 0.5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
@@ -132,24 +139,31 @@
     color: #ffffff;
     font-weight: 900;
     font-size: 22px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
     letter-spacing: 0.5px;
+    text-shadow: var(--outline);
   }
 
+  /* each diamond is a square turned 45deg; the padding makes room for its corners */
   .diamond-group {
     display: flex;
-    gap: 5px;
+    gap: 12px;
+    padding: 4px 4px;
   }
 
   .diamond {
-    font-size: 26px;
-    line-height: 1;
-    color: rgba(255, 255, 255, 0.3);
-    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
+    width: 15px;
+    height: 15px;
+    box-sizing: border-box;
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    transform: rotate(45deg);
+    /* dark ring outside the border and inside it, so the hollow ones are outlined on both edges */
+    box-shadow: 0 0 0 1.5px #000, inset 0 0 0 1.5px #000;
   }
 
   .diamond.filled {
-    color: #ffffff;
+    background: #ffffff;
+    border-color: #ffffff;
+    box-shadow: 0 0 0 1.5px #000;
   }
 </style>
 </head>
@@ -269,7 +283,6 @@
     for (let i = 0; i < total; i++) {
       const span = document.createElement('span');
       span.className = 'diamond' + (i < wins ? ' filled' : '');
-      span.textContent = '\u25C6';
       el.appendChild(span);
     }
   }
