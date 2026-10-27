@@ -7,11 +7,21 @@
   html, body {
     margin: 0;
     padding: 0;
-    width: 1920px;
-    height: 1080px;
+    width: 100%;
+    height: 100%;
     background: transparent;
     overflow: hidden;
     font-family: 'Arial Narrow', 'Arial', sans-serif;
+  }
+
+  /* everything is laid out on this 1920x1080 canvas; scale.js fits it to the window */
+  #stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: 0 0;
   }
 
   #bg {
@@ -144,6 +154,7 @@
 </style>
 </head>
 <body>
+<div id="stage">
 
   <img id="bg" src="/static.png" alt="" />
 
@@ -201,6 +212,9 @@
     <span class="player-name" id="name-right-4"></span>
     <img class="player-agent-icon" id="icon-right-4" src="" alt="" />
   </div>
+
+</div>
+<script src="/scale.js"></script>
 
 <script>
   function fitNameText(el) {

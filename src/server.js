@@ -6,6 +6,7 @@ const paths = require('./paths');
 const state = require('./state');
 const { broadcast, addClient } = require('./events');
 const { getLiveRoster, refreshSides, startLiveRoster } = require('./live-roster');
+const { startMapPool } = require('./map-pool');
 const { listImageNames, findImageFile, sendApiImage } = require('./images');
 const { getAgentIconUrl, getMapList, getMapSplashUrl } = require('./valorant-api');
 
@@ -25,6 +26,7 @@ app.get('/events', (req, res) =>
     roster: getLiveRoster(),
     score: state.readScore(),
     intro: state.readIntro(),
+    mapPool: state.readMapPool(),
   })
 );
 
@@ -62,7 +64,7 @@ app.post('/api/intro', (req, res) => {
   res.json(updated);
 });
 
-// Competitive map pool from valorant-api.com, so new maps show up on their own. Falls back to
+// Every competitive map, from valorant-api.com, so new maps show up on their own. Falls back to
 // the files in assets/maps if the API can't be reached.
 app.get('/api/maps', async (req, res) => {
   let maps = null;
@@ -73,6 +75,9 @@ app.get('/api/maps', async (req, res) => {
   }
   res.json(maps || listImageNames(paths.MAPS_DIR));
 });
+
+// Which of those maps are in the current competitive rotation (last seen in Valorant)
+app.get('/api/map-pool', (req, res) => res.json(state.readMapPool()));
 
 app.get('/api/team-logos', (req, res) => res.json(listImageNames(paths.TEAMS_DIR)));
 
@@ -112,6 +117,7 @@ app.post('/api/shutdown', (req, res) => {
 // ---------- start ----------
 
 startLiveRoster();
+startMapPool();
 
 app.listen(PORT, () => {
   console.log('');

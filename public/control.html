@@ -32,9 +32,41 @@
     font-size: 13px;
     padding: 6px 8px;
     border-radius: 6px;
-    width: 110px;
+    width: 130px;
     text-align: center;
   }
+
+  /* searchable team dropdown: logo + text box, list of teams from assets/teams below it */
+  .team-picker { position: relative; display: flex; align-items: center; gap: 6px; }
+  .team-picker-logo { width: 24px; height: 24px; object-fit: contain; }
+  .team-options {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #1c1f26;
+    border: 1px solid #333;
+    border-radius: 6px;
+    z-index: 100;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  }
+  .team-options.open { display: block; }
+  .team-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .team-option img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+  .team-option.highlighted { background: #22304f; }
+  .team-option.selected { color: #9fb4ff; }
+  .team-options .no-match { padding: 6px 8px; font-size: 12px; color: #666; }
 
   .bestof-row { display: flex; align-items: center; gap: 6px; justify-content: center; }
   .bestof-label { color: #aaa; font-size: 12px; }
@@ -94,9 +126,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
   }
   .roster-map { font-size: 12px; color: #9fb4ff; text-align: center; }
   .roster-teams { display: flex; gap: 8px; }
@@ -151,28 +180,19 @@
     background: #333; padding: 1px 5px; border-radius: 4px; font-size: 10px;
   }
 
-  /* ---------- tabs ---------- */
+  /* ---------- layout ---------- */
 
-  .tab-row { display: flex; gap: 6px; justify-content: center; }
-  .tab-btn {
-    background: #1c1f26;
-    border: 2px solid #333;
-    color: #aaa;
-    width: auto;
-    height: auto;
-    padding: 8px 16px;
-    font-size: 12px;
-    border-radius: 6px;
+  /* everything between the title and the bottom row; scrolls when the dock is short */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
-  .tab-btn.active {
-    border-color: #2b6fff;
-    background: #22304f;
-    color: #fff;
-  }
-  .tab-panel { display: none; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
-  .tab-panel.active { display: flex; }
 
-  /* ---------- intro tab ---------- */
+  /* ---------- intro scene (timer, maps) ---------- */
 
   .timer-row { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .timer-row input[type="datetime-local"] {
@@ -219,21 +239,38 @@
     border-radius: 6px;
     width: 140px;
   }
+  /* picked map is in the current competitive pool */
+  .map-picker select.in-pool {
+    border-color: #2b6fff;
+    background: #22304f;
+  }
+  /* picked map is out of rotation */
+  .map-picker select.off-pool { color: #999; }
+  .map-picker optgroup { color: #9fb4ff; font-style: normal; }
+  .map-picker option { background: #1c1f26; color: #fff; }
+  .map-picker option.off-pool { color: #888; }
+  /* already in another map slot - picking it moves it here */
+  .map-picker option.taken { color: #4a4a4a; background: #111318; }
+  .map-pool-note { color: #888; font-size: 11px; text-align: center; line-height: 1.5; }
+  .map-pool-note b { color: #9fb4ff; font-weight: normal; }
 </style>
 </head>
 <body>
 
   <h2>Stream Control</h2>
 
-  <div class="tab-row">
-    <button class="tab-btn active" id="tab-btn-score" onclick="showTab('score')">Score</button>
-    <button class="tab-btn" id="tab-btn-intro" onclick="showTab('intro')">Intro / Timer</button>
-  </div>
-
-  <div class="tab-panel active" id="tab-score">
+  <div class="panel">
     <div class="labels-row">
-      <input class="team-label-input" id="teamLabel" placeholder="Our team (e.g. UB)" />
-      <input class="team-label-input" id="opponentLabel" placeholder="Opponent" />
+      <div class="team-picker">
+        <img class="team-picker-logo" id="teamLabelLogo" alt="" />
+        <input class="team-label-input" id="teamLabel" placeholder="Our team" autocomplete="off" />
+        <div class="team-options" id="teamLabelOptions"></div>
+      </div>
+      <div class="team-picker">
+        <img class="team-picker-logo" id="opponentLabelLogo" alt="" />
+        <input class="team-label-input" id="opponentLabel" placeholder="Opponent" autocomplete="off" />
+        <div class="team-options" id="opponentLabelOptions"></div>
+      </div>
     </div>
 
     <div class="bestof-row">
@@ -264,15 +301,6 @@
 
     <button class="reset" onclick="resetScore()">Reset Score</button>
 
-    <div class="section-title">Live Roster</div>
-    <button class="switch-btn" onclick="switchTeams()"
-      title="Swap which in-game team shows on the left (your team) and the right (opponent)">&#8644; Switch Teams</button>
-    <div class="roster" id="roster">
-      <div class="empty-note">Not in a match</div>
-    </div>
-  </div>
-
-  <div class="tab-panel" id="tab-intro">
     <div class="section-title">Countdown Timer</div>
     <div class="timer-row">
       <input type="datetime-local" id="timerInput" />
@@ -280,17 +308,15 @@
       <button class="clear-timer-btn" onclick="clearTimer()">Clear</button>
     </div>
 
-    <div class="section-title">Match Format</div>
-    <div class="bestof-row">
-      <button class="bestof-btn" data-fmt="1" onclick="setFormat(1)">Bo1</button>
-      <button class="bestof-btn" data-fmt="3" onclick="setFormat(3)">Bo3</button>
-    </div>
-
     <div class="section-title">Maps</div>
     <div class="map-picker-row" id="mapPickerRow"></div>
+    <div class="map-pool-note" id="mapPoolNote"></div>
 
-    <div class="empty-note">
-      Team names/logos use the "Our team" / "Opponent" fields from the Score tab.
+    <div class="section-title">Live Roster</div>
+    <button class="switch-btn" onclick="switchTeams()"
+      title="Swap which in-game team shows on the left (your team) and the right (opponent)">&#8644; Switch Teams</button>
+    <div class="roster" id="roster">
+      <div class="empty-note">Not in a match</div>
     </div>
   </div>
 
@@ -309,10 +335,13 @@
     document.getElementById('themVal').textContent = current.them;
     document.getElementById('teamLabel').value = current.teamLabel;
     document.getElementById('opponentLabel').value = current.opponentLabel;
+    showTeamLogo('teamLabelLogo', current.teamLabel);
+    showTeamLogo('opponentLabelLogo', current.opponentLabel);
     document.querySelectorAll('.bestof-btn[data-bo]').forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.bo) === (current.bestOf || 3));
     });
     renderRoster(latestRoster); // team names/logos in the roster follow the labels above
+    renderMapPickers(); // number of map pickers follows Best of
   }
 
   async function push(partial) {
@@ -338,12 +367,103 @@
     push({ bestOf: n });
   }
 
-  document.getElementById('teamLabel').addEventListener('change', (e) => {
-    push({ teamLabel: e.target.value });
-  });
-  document.getElementById('opponentLabel').addEventListener('change', (e) => {
-    push({ opponentLabel: e.target.value });
-  });
+  // ---------- searchable team dropdowns ----------
+  // Click a box to see every team in assets/teams (with logos), type to narrow the list, pick with
+  // click or arrow keys + Enter. A name that isn't in the list can still be typed in - it just has
+  // no logo.
+
+  let teamNames = [];
+
+  function showTeamLogo(imgId, name) {
+    const img = document.getElementById(imgId);
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    img.onload = () => { img.style.visibility = 'visible'; };
+    if (name) img.src = '/team-logo/' + encodeURIComponent(name);
+    else img.style.visibility = 'hidden';
+  }
+
+  function setUpTeamPicker(field) {
+    const input = document.getElementById(field);
+    const list = document.getElementById(field + 'Options');
+    let shown = [];
+    let highlighted = -1;
+
+    function save(name) {
+      list.classList.remove('open');
+      input.value = name;
+      if (name !== current[field]) push({ [field]: name });
+    }
+
+    function renderList(filter) {
+      const q = filter.trim().toLowerCase();
+      shown = teamNames.filter((t) => t.toLowerCase().includes(q));
+      highlighted = shown.length ? 0 : -1;
+      list.innerHTML = '';
+      if (!shown.length) {
+        list.innerHTML = '<div class="no-match">No team logo with that name - press Enter to use it anyway</div>';
+      }
+      shown.forEach((name, i) => {
+        const row = document.createElement('div');
+        row.className = 'team-option' + (name === current[field] ? ' selected' : '');
+        const logo = document.createElement('img');
+        logo.src = '/team-logo/' + encodeURIComponent(name);
+        const label = document.createElement('span');
+        label.textContent = name;
+        row.append(logo, label);
+        // mousedown (not click) so it fires before the box loses focus
+        row.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          save(name);
+          input.blur();
+        });
+        row.addEventListener('mouseenter', () => setHighlight(i));
+        list.appendChild(row);
+      });
+      setHighlight(highlighted);
+      list.classList.add('open');
+    }
+
+    function setHighlight(i) {
+      highlighted = i;
+      [...list.querySelectorAll('.team-option')].forEach((row, j) => row.classList.toggle('highlighted', j === i));
+      const row = list.querySelectorAll('.team-option')[i];
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }
+
+    input.addEventListener('focus', () => {
+      input.select();
+      renderList(''); // whole list on open; typing narrows it
+    });
+    input.addEventListener('input', () => renderList(input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!shown.length) return;
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setHighlight((highlighted + step + shown.length) % shown.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        save(highlighted >= 0 ? shown[highlighted] : input.value.trim());
+        input.blur();
+      } else if (e.key === 'Escape') {
+        input.value = current[field]; // cancel
+        list.classList.remove('open');
+        input.blur();
+      }
+    });
+    input.addEventListener('blur', () => {
+      if (!list.classList.contains('open')) return; // already picked or cancelled
+      list.classList.remove('open');
+      const typed = input.value.trim();
+      // clicked away after typing: use an exact (any case) team match, else the typed text
+      const match = teamNames.find((t) => t.toLowerCase() === typed.toLowerCase());
+      save(match || typed || current[field]);
+    });
+  }
+
+  setUpTeamPicker('teamLabel');
+  setUpTeamPicker('opponentLabel');
+  fetch('/api/team-logos').then((r) => r.json()).then((names) => { teamNames = names; });
 
   fetch('/api/score').then(r => r.json()).then(s => { current = s; render(); });
 
@@ -439,18 +559,9 @@
     if (e.key === 'ArrowLeft') adjust('them', -1);
   });
 
-  // ---------- tabs ----------
+  // ---------- intro scene: countdown timer + maps ----------
 
-  function showTab(name) {
-    document.querySelectorAll('.tab-panel').forEach((el) => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach((el) => el.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    document.getElementById('tab-btn-' + name).classList.add('active');
-  }
-
-  // ---------- intro / timer tab ----------
-
-  let currentIntro = { targetTime: null, format: 3, maps: ['', '', ''] };
+  let currentIntro = { targetTime: null, maps: ['', '', '', '', ''] };
   let availableMaps = [];
 
   function localDatetimeInputValue(iso) {
@@ -481,21 +592,40 @@
     pushIntro({ targetTime: null });
   }
 
-  function setFormat(n) {
-    pushIntro({ format: n });
-  }
-
   function setMap(index, value) {
-    const maps = [...(currentIntro.maps || ['', '', ''])];
-    while (maps.length < 3) maps.push('');
+    const maps = [...(currentIntro.maps || [])];
+    while (maps.length < 5) maps.push('');
+    // a map can only be in one slot: picking one that's already used moves it here
+    const count = current.bestOf || 3;
+    for (let j = 0; j < count; j++) {
+      if (j !== index && value && maps[j] === value) maps[j] = '';
+    }
     maps[index] = value;
     pushIntro({ maps });
   }
 
+  // current competitive rotation (Riot only reports it while Valorant is open; the server keeps
+  // the last one it saw and pushes an update when it changes)
+  let mapPool = { maps: [], updatedAt: null };
+
+  // takenBy: number of the other slot this map is already in (picking it moves it here), or 0
+  function mapOption(name, { inPool, takenBy }) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = takenBy ? `${name} (map ${takenBy})` : name;
+    if (!inPool) opt.className = 'off-pool';
+    if (takenBy) opt.className = 'taken';
+    return opt;
+  }
+
   function renderMapPickers() {
     const row = document.getElementById('mapPickerRow');
-    const format = currentIntro.format || 3;
-    const count = format === 1 ? 1 : 3;
+    const count = current.bestOf || 3; // one picker per map: Bo1 = 1, Bo3 = 3, Bo5 = 5
+    const picks = (currentIntro.maps || []).slice(0, count);
+    const inPool = new Set(mapPool.maps);
+    const poolMaps = availableMaps.filter((m) => inPool.has(m));
+    const otherMaps = availableMaps.filter((m) => !inPool.has(m));
+
     row.innerHTML = '';
     for (let i = 0; i < count; i++) {
       const wrap = document.createElement('div');
@@ -507,25 +637,51 @@
       blankOpt.value = '';
       blankOpt.textContent = '-- choose --';
       select.appendChild(blankOpt);
-      availableMaps.forEach((m) => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        if ((currentIntro.maps || [])[i] === m) opt.selected = true;
-        select.appendChild(opt);
-      });
+
+      // maps picked in the other slots
+      const takenBy = {}; // map -> number of the other slot it's in
+      picks.forEach((m, j) => { if (m && j !== i) takenBy[m] = j + 1; });
+      const add = (parent, m) => parent.appendChild(mapOption(m, { inPool: inPool.has(m) || !poolMaps.length, takenBy: takenBy[m] || 0 }));
+      if (poolMaps.length) {
+        // current pool first, the rest after
+        const poolGroup = document.createElement('optgroup');
+        poolGroup.label = 'Current map pool';
+        poolMaps.forEach((m) => add(poolGroup, m));
+        const otherGroup = document.createElement('optgroup');
+        otherGroup.label = 'Other maps';
+        otherMaps.forEach((m) => add(otherGroup, m));
+        select.append(poolGroup, otherGroup);
+      } else {
+        availableMaps.forEach((m) => add(select, m)); // pool not known yet - plain list
+      }
+
+      select.value = picks[i] || '';
+      if (picks[i] && poolMaps.length) select.className = inPool.has(picks[i]) ? 'in-pool' : 'off-pool';
       select.onchange = () => setMap(i, select.value);
       wrap.appendChild(label);
       wrap.appendChild(select);
       row.appendChild(wrap);
     }
+    renderMapPoolNote();
+  }
+
+  function renderMapPoolNote() {
+    const note = document.getElementById('mapPoolNote');
+    if (!mapPool.maps.length) {
+      note.textContent = "Current map pool not known yet - it's picked up automatically while Valorant is open.";
+      return;
+    }
+    const when = mapPool.updatedAt
+      ? new Date(mapPool.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : '';
+    note.innerHTML = '';
+    const label = document.createElement('b');
+    label.textContent = 'Current map pool: ';
+    note.append(label, mapPool.maps.join(', '), when ? ` (checked ${when})` : '');
   }
 
   function renderIntroTab() {
     document.getElementById('timerInput').value = localDatetimeInputValue(currentIntro.targetTime);
-    document.querySelectorAll('#tab-intro .bestof-btn').forEach((btn) => {
-      btn.classList.toggle('active', Number(btn.dataset.fmt) === (currentIntro.format || 3));
-    });
     renderMapPickers();
   }
 
@@ -533,6 +689,10 @@
   fetch('/api/intro').then(r => r.json()).then(intro => { currentIntro = intro; renderIntroTab(); });
 
   const introEvents = new EventSource('/events');
+  introEvents.addEventListener('mapPool', (e) => {
+    mapPool = JSON.parse(e.data);
+    renderMapPickers();
+  });
   introEvents.addEventListener('intro', (e) => {
     currentIntro = JSON.parse(e.data);
     renderIntroTab();

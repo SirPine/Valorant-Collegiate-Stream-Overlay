@@ -12,7 +12,7 @@
 const fs = require('fs');
 const { request } = require('./http');
 const { LOCKFILE_PATH } = require('./paths');
-const { loadGameData, agentNameForId, mapNameForId, getClientVersion } = require('./valorant-api');
+const { loadGameData, agentNameForId, mapNameForId, mapNameForCode, getClientVersion } = require('./valorant-api');
 
 const CLIENT_PLATFORM = Buffer.from(
   JSON.stringify({
@@ -115,12 +115,11 @@ async function getCoreGame(ctx) {
   };
 }
 
-// ---------- main entry point ----------
+// ---------- main entry points ----------
 
-// Returns { matchId, map, myTeam, teams: { Blue: [{ player, agent }], Red: [...] } }, or null
-// when not in a match. myTeam is undefined when spectating. During agent select only your own
-// team is known.
-async function fetchLiveRoster() {
+// Logs in through the local Riot Client. Returns what the game-server requests need, or null if
+// the Riot Client or Valorant isn't running.
+async function connect() {
   const lock = readLockfile();
   if (!lock) return null;
 
@@ -136,7 +135,7 @@ async function fetchLiveRoster() {
 
   await loadGameData();
 
-  const ctx = {
+  return {
     region,
     shard,
     puuid: tokens.json.subject,
@@ -147,6 +146,14 @@ async function fetchLiveRoster() {
       'X-Riot-ClientVersion': getClientVersion() || session.version || '',
     },
   };
+}
+
+// Returns { matchId, map, myTeam, teams: { Blue: [{ player, agent }], Red: [...] } }, or null
+// when not in a match. myTeam is undefined when spectating. During agent select only your own
+// team is known.
+async function fetchLiveRoster() {
+  const ctx = await connect();
+  if (!ctx) return null;
 
   const game = (await getPregame(ctx)) || (await getCoreGame(ctx));
   if (!game) return null; // in menus / lobby
@@ -171,4 +178,27 @@ async function fetchLiveRoster() {
   };
 }
 
-module.exports = { fetchLiveRoster };
+// The current competitive map pool, e.g. ["Abyss", "Bind", ...], or null if Valorant isn't open.
+// Comes from the settings the game uses for custom games: each queue lists its maps with a
+// weight, and maps out of rotation have weight 0. Map names there are code names ("Duality" =
+// Bind), translated with valorant-api.com's map data.
+async function fetchMapPool() {
+  const ctx = await connect();
+  if (!ctx) return null;
+
+  const glz = `https://glz-${ctx.region}-1.${ctx.shard}.a.pvp.net`;
+  const res = await request(`${glz}/parties/v1/parties/customgameconfigs`, { headers: ctx.headers });
+  if (res.status !== 200 || !res.json) return null;
+
+  const competitive = (res.json.Queues || []).find((q) => q.QueueID === 'competitive');
+  if (!competitive || !Array.isArray(competitive.MapWeights)) return null;
+
+  const pool = competitive.MapWeights.map((entry) => entry.split(':')) // "Duality:1"
+    .filter(([, weight]) => Number(weight) > 0)
+    .map(([code]) => mapNameForCode(code))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  return pool.length ? pool : null;
+}
+
+module.exports = { fetchLiveRoster, fetchMapPool };

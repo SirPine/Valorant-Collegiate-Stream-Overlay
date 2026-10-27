@@ -57,7 +57,8 @@ than opening it in a separate browser tab.
 - In OBS: Sources → + → Browser
 - Roster overlay URL: `http://localhost:3000/overlay.html`
 - Intro/timer overlay URL: `http://localhost:3000/intro.html`
-- Width: `1920`, Height: `1080` (for both)
+- Width: `1920`, Height: `1080` (for both). Any other 16:9 size works too (e.g. 1280x720 or
+  2560x1440): the overlays scale to fit the source, so everything stays in the same place.
 - Check "Shutdown source when not visible" OFF (so it keeps listening for live updates)
 
 **Control panel (as an OBS dock, not a browser tab):**
@@ -72,7 +73,7 @@ than opening it in a separate browser tab.
 The roster comes straight from the game. There's nothing to type in. Valorant has to be running
 **on the same PC as this server** (you're playing or spectating):
 - Both teams are shown: **your team in the left column, the opponent in the right column**, 5
-  players each. The names come from the "Our team" / "Opponent" boxes on the Score tab, and each
+  players each. The names come from the "Our team" / "Opponent" boxes at the top of the control panel, and each
   team's logo from `assets/teams` appears in the banner at the top of its side.
 - When agent select starts, the rows fill in with in-game names. Agents appear as players hover and
   lock them, and stay correct once the match loads. Riot hides the other team during agent select,
@@ -96,9 +97,11 @@ where Valorant's own in-game HUD shows each team — rather than in a separate b
 your team, right corner = opponent. Filled diamonds = maps won, dim/outline diamonds = not yet won.
 
 In the control panel:
-- Two small text boxes at the top set the labels shown above each diamond group (e.g. "UB" and
-  "Sentinels").
-- **Best of** buttons set how many diamonds show per side (Bo1 → 1, Bo3 → 2, Bo5 → 3).
+- The two team boxes at the top set the names shown above each diamond group. Click one to get a
+  searchable list of every team in `assets/teams` (with logos); type to narrow it, then click or use
+  the arrow keys + Enter. A name that isn't in the list can still be typed in (it just has no logo).
+- **Best of** buttons set how many diamonds show per side (Bo1 → 1, Bo3 → 2, Bo5 → 3). The same
+  setting decides how many maps the intro scene shows.
 - The **US MAPS WON** / **THEM MAPS WON** +/- buttons (and the ↑↓←→ hotkeys) fill in diamonds as
   maps are won.
 
@@ -113,19 +116,25 @@ logos + names, and the maps being played.
 ```
 http://localhost:3000/intro.html
 ```
-Same size as the other one: 1920x1080.
+Same size as the other one: 1920x1080, or any 16:9 size.
 
 **Team logos:** drop image files into the `assets/teams` folder, named exactly `<TeamName>.png` — the
-name must match what's typed into the "Our team" / "Opponent" fields on the **Score** tab of the
+name must match what's typed into the "Our team" / "Opponent" fields at the top of the
 control panel (those fields are shared between both scenes, so you only set them once).
 
-**Maps:** the map list and images come from valorant-api.com, so there are no files to manage. Go to the
-**Intro / Timer** tab in the control panel to:
+**Maps:** the map list and images come from valorant-api.com, so there are no files to manage. In the control panel
+(below the score) you can:
 - Set the countdown timer (pick a date/time, hit Set — it counts down live; Clear resets it to
   `00:00:00`)
-- Choose Bo1 or Bo3 (Bo1 shows a single centered map slot, Bo3 shows all three)
-- Pick each map from a dropdown. It lists the current competitive map pool, so a new map shows up
-  on its own when Riot adds it. If you're offline, it lists the files in `assets/maps` instead.
+- Show 1, 3 or 5 maps, set by the **Best of** buttons. The intro scene draws one map box per map in
+  a centered row, so the background image doesn't need map boxes in it.
+- Pick each map from a dropdown. It lists every competitive map, so a new map shows up on its own
+  when Riot adds it. If you're offline, it lists the files in `assets/maps` instead.
+  - Maps in the **current competitive map pool** are listed first and highlighted; out-of-rotation
+    maps come after, dimmed. The pool is read from Valorant while it's open (checked every 10
+    minutes) and remembered when it's closed, so it updates by itself when Riot rotates maps.
+  - A map can only be in one slot. Maps already used in another slot are darkened and labeled with
+    that slot (e.g. "Bind (map 2)"); picking one moves it to the new slot and clears the old one.
 
 ## Notes / troubleshooting
 - The server's lifetime is tied directly to the terminal window `start.bat` opens — close that
@@ -134,7 +143,8 @@ control panel (those fields are shared between both scenes, so you only set them
   running at once.
 - The player rows (5 per side) are positioned to match the placeholder boxes measured
   from your original `static.png` layout. If you change the static background's layout, edit the
-  `top`/`left` px values in `public/overlay.html` (`.player-row`) to match.
+  `top`/`left` px values in `public/overlay.html` (`.player-row`) to match. Positions are always in
+  1920x1080 pixels (the background image size), whatever size the page is shown at.
 - If an agent icon or map image doesn't show up, delete `cache/agent-icons` or `cache/maps` to force
   them to download again. Don't delete the whole `cache` folder unless you also want to reset your settings.
 - Everything you set in the control panel (score, team labels, intro timer and maps, Switch Teams)

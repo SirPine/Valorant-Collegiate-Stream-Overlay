@@ -1,14 +1,17 @@
-// Everything the control panel saves (score, intro scene, whether the teams are switched) lives
-// in one file, cache/state.json, so it survives a restart. Missing sections fall back to defaults.
+// Everything the server saves (score, intro scene, whether the teams are switched, the last known
+// competitive map pool) lives in one file, cache/state.json, so it survives a restart. Missing
+// sections fall back to defaults.
 
 const fs = require('fs');
 const { CACHE_DIR, STATE_PATH } = require('./paths');
 
 const DEFAULT_STATE = {
   score: { teamLabel: 'UB', opponentLabel: 'OPP', us: 0, them: 0, bestOf: 3 },
-  intro: { targetTime: null, format: 3, maps: ['', '', ''] },
+  intro: { targetTime: null, maps: ['', '', '', '', ''] }, // Best of lives in score.bestOf
   // swapped: false = your in-game team on the left (Blue when spectating), true = on the right
   sides: { swapped: false },
+  // last competitive map pool seen in Valorant (see map-pool.js); empty until Valorant has been open
+  mapPool: { maps: [], updatedAt: null },
 };
 
 // only known sections are kept, so settings that no longer exist drop out of the file
@@ -38,4 +41,6 @@ module.exports = {
   writeIntro: (intro) => writeState('intro', intro),
   readSides: () => readState().sides,
   writeSides: (sides) => writeState('sides', sides),
+  readMapPool: () => readState().mapPool,
+  writeMapPool: (mapPool) => writeState('mapPool', mapPool),
 };

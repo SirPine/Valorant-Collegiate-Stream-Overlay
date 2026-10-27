@@ -79,6 +79,14 @@ function mapNameForId(mapId) {
   return (mapNames && mapNames[mapId]) || '';
 }
 
+// map code name used in Riot's queue settings ("Duality") -> "Bind". The code name is the last
+// part of the map path ("/Game/Maps/Duality/Duality").
+function mapNameForCode(code) {
+  if (!mapNames) return '';
+  const path = Object.keys(mapNames).find((p) => p.split('/').pop() === code);
+  return path ? mapNames[path] : '';
+}
+
 function getClientVersion() {
   return clientVersion;
 }
@@ -91,5 +99,6 @@ module.exports = {
   getMapSplashUrl,
   agentNameForId,
   mapNameForId,
+  mapNameForCode,
   getClientVersion,
 };
