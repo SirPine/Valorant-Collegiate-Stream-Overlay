@@ -10,16 +10,9 @@
 // running Valorant (playing or spectating), and it's unofficial, so Riot can change it.
 
 const fs = require('fs');
-const path = require('path');
-const https = require('https');
-
-const LOCKFILE_PATH = path.join(
-  process.env.LOCALAPPDATA || '',
-  'Riot Games',
-  'Riot Client',
-  'Config',
-  'lockfile'
-);
+const { request } = require('./http');
+const { LOCKFILE_PATH } = require('./paths');
+const { loadGameData, agentNameForId, mapNameForId, mapNameForCode, getClientVersion } = require('./valorant-api');
 
 const CLIENT_PLATFORM = Buffer.from(
   JSON.stringify({
@@ -31,34 +24,6 @@ const CLIENT_PLATFORM = Buffer.from(
 ).toString('base64');
 
 const REGION_TO_SHARD = { na: 'na', latam: 'na', br: 'na', eu: 'eu', ap: 'ap', kr: 'kr', pbe: 'pbe' };
-
-// ---------- tiny HTTPS helper (the local API uses a self-signed cert) ----------
-
-function request(url, { method = 'GET', headers = {}, body, insecure = false } = {}) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      url,
-      { method, headers, rejectUnauthorized: !insecure, timeout: 5000 },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => {
-          let json = null;
-          try {
-            json = data ? JSON.parse(data) : null;
-          } catch (e) {
-            // non-JSON body - leave as null
-          }
-          resolve({ status: res.statusCode, json });
-        });
-      }
-    );
-    req.on('timeout', () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
-    if (body !== undefined) req.write(typeof body === 'string' ? body : JSON.stringify(body));
-    req.end();
-  });
-}
 
 // ---------- local Riot Client API ----------
 
@@ -91,40 +56,6 @@ function regionFromSession(session) {
   const args = (session.launchConfiguration && session.launchConfiguration.arguments) || [];
   const arg = args.find((a) => a.startsWith('-ares-deployment='));
   return arg ? arg.split('=')[1] : null;
-}
-
-// ---------- static game data (agent + map names) from valorant-api.com ----------
-
-let agentNames = null; // uuid -> "Jett"
-let mapNames = null; // "/Game/Maps/Ascent/Ascent" -> "Ascent"
-let clientVersion = null;
-
-async function loadGameData() {
-  if (!agentNames) {
-    const res = await request('https://valorant-api.com/v1/agents?isPlayableCharacter=true');
-    if (res.status === 200) {
-      agentNames = {};
-      for (const a of res.json.data) agentNames[a.uuid.toLowerCase()] = a.displayName;
-    }
-  }
-  if (!mapNames) {
-    const res = await request('https://valorant-api.com/v1/maps');
-    if (res.status === 200) {
-      mapNames = {};
-      for (const m of res.json.data) mapNames[m.mapUrl] = m.displayName;
-    }
-  }
-  if (!clientVersion) {
-    const res = await request('https://valorant-api.com/v1/version');
-    if (res.status === 200) clientVersion = res.json.data.riotClientVersion;
-  }
-}
-
-// "KAY/O" -> "KAYO", to match the "<Agent>_icon.png" filenames in assets/agent icons
-function agentIconName(characterId) {
-  if (!characterId || !agentNames) return '';
-  const name = agentNames[characterId.toLowerCase()] || '';
-  return name.replace(/[^A-Za-z0-9]/g, '');
 }
 
 // ---------- remote (Riot game server) API ----------
@@ -184,33 +115,11 @@ async function getCoreGame(ctx) {
   };
 }
 
-// side: 'ours' | 'enemy' | 'blue' | 'red'. "Ours" is the team you're on - or, when
-// spectating, the team whose names best match the rosters in options.txt.
-async function pickTeamId(ctx, game, side, preferredNames) {
-  if (side === 'blue') return 'Blue';
-  if (side === 'red') return 'Red';
+// ---------- main entry points ----------
 
-  let ours = game.myTeam;
-  if (!ours) {
-    let best = -1;
-    for (const [id, members] of Object.entries(game.teams)) {
-      const names = await lookupNames(ctx, members.map((m) => m.puuid));
-      const hits = names.filter((n) => preferredNames.has(n.toLowerCase())).length;
-      if (hits > best) {
-        best = hits;
-        ours = id;
-      }
-    }
-  }
-  if (side === 'enemy') return Object.keys(game.teams).find((id) => id !== ours) || null;
-  return ours;
-}
-
-// ---------- main poll ----------
-
-// preferredOrder: lowercase player names from options.txt, used to order the live roster the
-// same way as your hand-written one (and to pick "our" team when spectating).
-async function fetchLiveRoster(preferredOrder, side = 'ours') {
+// Logs in through the local Riot Client. Returns what the game-server requests need, or null if
+// the Riot Client or Valorant isn't running.
+async function connect() {
   const lock = readLockfile();
   if (!lock) return null;
 
@@ -226,7 +135,7 @@ async function fetchLiveRoster(preferredOrder, side = 'ours') {
 
   await loadGameData();
 
-  const ctx = {
+  return {
     region,
     shard,
     puuid: tokens.json.subject,
@@ -234,32 +143,62 @@ async function fetchLiveRoster(preferredOrder, side = 'ours') {
       Authorization: `Bearer ${tokens.json.accessToken}`,
       'X-Riot-Entitlements-JWT': tokens.json.token,
       'X-Riot-ClientPlatform': CLIENT_PLATFORM,
-      'X-Riot-ClientVersion': clientVersion || session.version || '',
+      'X-Riot-ClientVersion': getClientVersion() || session.version || '',
     },
   };
+}
+
+// Returns { matchId, map, myTeam, teams: { Blue: [{ player, agent }], Red: [...] } }, or null
+// when not in a match. myTeam is undefined when spectating. During agent select only your own
+// team is known.
+async function fetchLiveRoster() {
+  const ctx = await connect();
+  if (!ctx) return null;
 
   const game = (await getPregame(ctx)) || (await getCoreGame(ctx));
   if (!game) return null; // in menus / lobby
 
-  // The chosen team may not be visible yet (e.g. the enemy during agent select) - show an
-  // empty roster until the match loads rather than stale names from last game.
-  const teamId = await pickTeamId(ctx, game, side, new Set(preferredOrder));
-  const members = game.teams[teamId] || [];
+  const puuids = Object.values(game.teams).flat().map((p) => p.puuid);
+  const names = await lookupNames(ctx, puuids);
+  const nameOf = Object.fromEntries(puuids.map((id, i) => [id, names[i]]));
 
-  const names = await lookupNames(ctx, members.map((p) => p.puuid));
-  const players = members.map((p, i) => ({ player: names[i], agent: agentIconName(p.characterId) }));
-
-  const rank = (name) => {
-    const idx = preferredOrder.indexOf(name.toLowerCase());
-    return idx === -1 ? Infinity : idx;
-  };
-  players.sort((a, b) => rank(a.player) - rank(b.player) || a.player.localeCompare(b.player));
+  const teams = {};
+  for (const [teamId, members] of Object.entries(game.teams)) {
+    teams[teamId] = members
+      .map((p) => ({ player: nameOf[p.puuid], agent: agentNameForId(p.characterId) }))
+      // alphabetical, so the rows don't reshuffle between agent select and the live game
+      .sort((a, b) => a.player.localeCompare(b.player, undefined, { sensitivity: 'base' }));
+  }
 
   return {
     matchId: game.matchId,
-    map: (mapNames && mapNames[game.mapId]) || '',
-    players,
+    map: mapNameForId(game.mapId),
+    myTeam: game.myTeam,
+    teams,
   };
 }
 
-module.exports = { fetchLiveRoster };
+// The current competitive map pool, e.g. ["Abyss", "Bind", ...], or null if Valorant isn't open.
+// Comes from the settings the game uses for custom games: each queue lists its maps with a
+// weight, and maps out of rotation have weight 0. Map names there are code names ("Duality" =
+// Bind), translated with valorant-api.com's map data.
+async function fetchMapPool() {
+  const ctx = await connect();
+  if (!ctx) return null;
+
+  const glz = `https://glz-${ctx.region}-1.${ctx.shard}.a.pvp.net`;
+  const res = await request(`${glz}/parties/v1/parties/customgameconfigs`, { headers: ctx.headers });
+  if (res.status !== 200 || !res.json) return null;
+
+  const competitive = (res.json.Queues || []).find((q) => q.QueueID === 'competitive');
+  if (!competitive || !Array.isArray(competitive.MapWeights)) return null;
+
+  const pool = competitive.MapWeights.map((entry) => entry.split(':')) // "Duality:1"
+    .filter(([, weight]) => Number(weight) > 0)
+    .map(([code]) => mapNameForCode(code))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  return pool.length ? pool : null;
+}
+
+module.exports = { fetchLiveRoster, fetchMapPool };

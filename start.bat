@@ -19,4 +19,4 @@ if "%STATUS%"=="200" (
 
 echo Starting overlay server. Closing this window will stop the server.
 echo.
-node server.js
+node src/server.js

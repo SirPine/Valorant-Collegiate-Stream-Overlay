@@ -7,11 +7,29 @@
   html, body {
     margin: 0;
     padding: 0;
-    width: 1920px;
-    height: 1080px;
+    width: 100%;
+    height: 100%;
     background: transparent;
     overflow: hidden;
     font-family: 'Arial Narrow', 'Arial', sans-serif;
+  }
+
+  :root {
+    /* crisp dark outline around white text: unblurred shadows in 8 directions */
+    --outline:
+      -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000,
+      -2px 0 0 #000, 2px 0 0 #000,
+      -2px 2px 0 #000, 0 2px 0 #000, 2px 2px 0 #000;
+  }
+
+  /* everything is laid out on this 1920x1080 canvas; scale.js fits it to the window */
+  #stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: 0 0;
   }
 
   #bg {
@@ -24,18 +42,33 @@
   }
 
   /* ---------- player rows ---------- */
-  /* Coordinates were measured directly from the placeholder boxes in static.png */
+  /* Coordinates were measured directly from the placeholder boxes in static.png.
+     Left column = your team ("Our team" on the Score tab), right column = the opponent.
+     Each side is a mirror of the other: agent icon on the outer edge, name toward the center. */
 
   .player-row {
     position: absolute;
-    left: 1594px;
     width: 309px;
     height: 88px;
     z-index: 10;
     display: flex;
     align-items: center;
     box-sizing: border-box;
+  }
+
+  .player-row.right {
+    left: 1594px;
     padding: 0 0 0 14px;
+  }
+
+  .player-row.left {
+    left: 16px;
+    flex-direction: row-reverse;
+    padding: 0 14px 0 0;
+  }
+
+  .player-row.left .player-name {
+    text-align: right;
   }
 
   .player-name {
@@ -44,7 +77,6 @@
     font-size: 42px;
     text-transform: none;
     letter-spacing: 0.5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
@@ -58,13 +90,31 @@
     margin-left: 0;
     background: none;
     box-shadow: none;
-    transform: scaleX(-1);
     flex-shrink: 0;
   }
 
+  /* flip the right side's icons so every agent faces the center of the screen */
+  .player-row.right .player-agent-icon {
+    transform: scaleX(-1);
+  }
+
+  /* ---------- team logos in the two banners at the top ---------- */
+
+  .team-logo {
+    position: absolute;
+    top: 31px;
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    z-index: 10;
+    visibility: hidden;
+  }
+
+  #logo-left { left: 355px; }
+  #logo-right { left: 1525px; }
+
   /* ---------- map-score diamonds, top-left and top-right corners ---------- */
-  /* These sit over the native in-game HUD area for each team, independent of
-     the 5-agent list below (which is left untouched). */
+  /* These sit over the native in-game HUD area for each team. */
 
   .corner-score {
     position: absolute;
@@ -89,28 +139,36 @@
     color: #ffffff;
     font-weight: 900;
     font-size: 22px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
     letter-spacing: 0.5px;
+    text-shadow: var(--outline);
   }
 
+  /* each diamond is a square turned 45deg; the padding makes room for its corners */
   .diamond-group {
     display: flex;
-    gap: 5px;
+    gap: 12px;
+    padding: 4px 4px;
   }
 
   .diamond {
-    font-size: 26px;
-    line-height: 1;
-    color: rgba(255, 255, 255, 0.3);
-    text-shadow: 0 2px 4px rgba(0,0,0,0.85);
+    width: 15px;
+    height: 15px;
+    box-sizing: border-box;
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    transform: rotate(45deg);
+    /* dark ring outside the border and inside it, so the hollow ones are outlined on both edges */
+    box-shadow: 0 0 0 1.5px #000, inset 0 0 0 1.5px #000;
   }
 
   .diamond.filled {
-    color: #ffffff;
+    background: #ffffff;
+    border-color: #ffffff;
+    box-shadow: 0 0 0 1.5px #000;
   }
 </style>
 </head>
 <body>
+<div id="stage">
 
   <img id="bg" src="/static.png" alt="" />
 
@@ -124,32 +182,55 @@
     <div class="diamond-group" id="diamonds-them"></div>
   </div>
 
-  <!-- 5 player rows, top values measured from static.png placeholder boxes -->
-  <div class="player-row" style="top:549px;" data-index="0">
-    <span class="player-name" id="name-0"></span>
-    <img class="player-agent-icon" id="icon-0" src="" alt="" />
+  <img class="team-logo" id="logo-left" alt="" />
+  <img class="team-logo" id="logo-right" alt="" />
+
+  <!-- 5 player rows per side, top values measured from static.png placeholder boxes -->
+  <div class="player-row left" style="top:549px;">
+    <span class="player-name" id="name-left-0"></span>
+    <img class="player-agent-icon" id="icon-left-0" src="" alt="" />
   </div>
-  <div class="player-row" style="top:656px;" data-index="1">
-    <span class="player-name" id="name-1"></span>
-    <img class="player-agent-icon" id="icon-1" src="" alt="" />
+  <div class="player-row left" style="top:656px;">
+    <span class="player-name" id="name-left-1"></span>
+    <img class="player-agent-icon" id="icon-left-1" src="" alt="" />
   </div>
-  <div class="player-row" style="top:762px;" data-index="2">
-    <span class="player-name" id="name-2"></span>
-    <img class="player-agent-icon" id="icon-2" src="" alt="" />
+  <div class="player-row left" style="top:762px;">
+    <span class="player-name" id="name-left-2"></span>
+    <img class="player-agent-icon" id="icon-left-2" src="" alt="" />
   </div>
-  <div class="player-row" style="top:869px;" data-index="3">
-    <span class="player-name" id="name-3"></span>
-    <img class="player-agent-icon" id="icon-3" src="" alt="" />
+  <div class="player-row left" style="top:869px;">
+    <span class="player-name" id="name-left-3"></span>
+    <img class="player-agent-icon" id="icon-left-3" src="" alt="" />
   </div>
-  <div class="player-row" style="top:975px;" data-index="4">
-    <span class="player-name" id="name-4"></span>
-    <img class="player-agent-icon" id="icon-4" src="" alt="" />
+  <div class="player-row left" style="top:975px;">
+    <span class="player-name" id="name-left-4"></span>
+    <img class="player-agent-icon" id="icon-left-4" src="" alt="" />
   </div>
+  <div class="player-row right" style="top:549px;">
+    <span class="player-name" id="name-right-0"></span>
+    <img class="player-agent-icon" id="icon-right-0" src="" alt="" />
+  </div>
+  <div class="player-row right" style="top:656px;">
+    <span class="player-name" id="name-right-1"></span>
+    <img class="player-agent-icon" id="icon-right-1" src="" alt="" />
+  </div>
+  <div class="player-row right" style="top:762px;">
+    <span class="player-name" id="name-right-2"></span>
+    <img class="player-agent-icon" id="icon-right-2" src="" alt="" />
+  </div>
+  <div class="player-row right" style="top:869px;">
+    <span class="player-name" id="name-right-3"></span>
+    <img class="player-agent-icon" id="icon-right-3" src="" alt="" />
+  </div>
+  <div class="player-row right" style="top:975px;">
+    <span class="player-name" id="name-right-4"></span>
+    <img class="player-agent-icon" id="icon-right-4" src="" alt="" />
+  </div>
+
+</div>
+<script src="/scale.js"></script>
 
 <script>
-  let latestTeams = [];
-  let latestActiveTitle = null;
-
   function fitNameText(el) {
     // reset to base size, then shrink only if it overflows the available width
     el.style.fontSize = '';
@@ -161,14 +242,14 @@
     }
   }
 
-  function renderPlayers(players) {
+  function renderPlayers(side, players) {
     for (let i = 0; i < 5; i++) {
-      const nameEl = document.getElementById('name-' + i);
-      const iconEl = document.getElementById('icon-' + i);
+      const nameEl = document.getElementById(`name-${side}-${i}`);
+      const iconEl = document.getElementById(`icon-${side}-${i}`);
       const p = players[i];
       if (p) {
         nameEl.textContent = p.player || '';
-        iconEl.src = p.agent ? ('/agent-icons/' + encodeURIComponent(p.agent) + '_icon.png') : '';
+        iconEl.src = p.agent ? ('/agent-icon/' + encodeURIComponent(p.agent)) : '';
         iconEl.style.visibility = p.agent ? 'visible' : 'hidden';
       } else {
         nameEl.textContent = '';
@@ -179,14 +260,21 @@
     }
   }
 
-  function renderActiveTeam() {
-    if (!latestTeams.length) {
-      renderPlayers([]);
+  function renderRoster(roster) {
+    renderPlayers('left', roster.left);
+    renderPlayers('right', roster.right);
+  }
+
+  // logo from assets/teams, matched by the team name on the Score tab; hidden if there's no file
+  function renderLogo(id, teamName) {
+    const img = document.getElementById(id);
+    if (!teamName) {
+      img.style.visibility = 'hidden';
       return;
     }
-    let team = latestTeams.find((t) => t.title === latestActiveTitle);
-    if (!team) team = latestTeams[0]; // fallback if the chosen title no longer exists
-    renderPlayers(team.players || []);
+    img.onload = () => { img.style.visibility = 'visible'; };
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    img.src = '/team-logo/' + encodeURIComponent(teamName);
   }
 
   function renderDiamondGroup(containerId, wins, total) {
@@ -195,7 +283,6 @@
     for (let i = 0; i < total; i++) {
       const span = document.createElement('span');
       span.className = 'diamond' + (i < wins ? ' filled' : '');
-      span.textContent = '\u25C6';
       el.appendChild(span);
     }
   }
@@ -203,6 +290,8 @@
   function renderScore(score) {
     document.getElementById('teamLabel').textContent = score.teamLabel != null ? score.teamLabel : 'UB';
     document.getElementById('opponentLabel').textContent = score.opponentLabel != null ? score.opponentLabel : 'OPP';
+    renderLogo('logo-left', score.teamLabel);
+    renderLogo('logo-right', score.opponentLabel);
     const bestOf = score.bestOf || 3;
     const diamondsNeeded = Math.ceil(bestOf / 2);
     const us = score.us != null ? score.us : 0;
@@ -212,14 +301,13 @@
   }
 
   // initial load
-  fetch('/api/teams').then(r => r.json()).then(teams => { latestTeams = teams; renderActiveTeam(); }).catch(() => {});
-  fetch('/api/active').then(r => r.json()).then(a => { latestActiveTitle = a.title; renderActiveTeam(); }).catch(() => {});
+  fetch('/api/roster').then(r => r.json()).then(renderRoster).catch(() => {});
   fetch('/api/score').then(r => r.json()).then(renderScore).catch(() => {});
 
   // live updates
   const es = new EventSource('/events');
-  es.addEventListener('teams', (e) => { latestTeams = JSON.parse(e.data); renderActiveTeam(); });
-  es.addEventListener('active', (e) => { latestActiveTitle = JSON.parse(e.data).title; renderActiveTeam(); });
+  // players + agents for both teams, straight from the Valorant client; empty outside a match
+  es.addEventListener('roster', (e) => renderRoster(JSON.parse(e.data)));
   es.addEventListener('score', (e) => renderScore(JSON.parse(e.data)));
 </script>
 

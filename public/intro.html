@@ -7,11 +7,21 @@
   html, body {
     margin: 0;
     padding: 0;
-    width: 1920px;
-    height: 1080px;
+    width: 100%;
+    height: 100%;
     background: transparent;
     overflow: hidden;
     font-family: Arial, sans-serif;
+  }
+
+  /* everything is laid out on this 1920x1080 canvas; scale.js fits it to the window */
+  #stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: 0 0;
   }
 
   #bg {
@@ -84,11 +94,30 @@
   }
 
   /* ---------- map slots ---------- */
+  /* One box per map (Bo1 = 1, Bo3 = 3, Bo5 = 5), drawn here rather than in the background
+     image, in a row centered on the screen. Bo1/Bo3 line up with where the boxes used to be
+     in intro-background.png. */
+
+  #map-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 780px;
+    display: flex;
+    justify-content: center;
+    gap: 113px;
+  }
+
+  #map-row.bo5 {
+    gap: 60px; /* keeps all 5 clear of the screen edges */
+  }
 
   .map-box {
-    top: 780px;
+    position: relative;
     width: 215px;
     height: 215px;
+    background: #424242; /* same grey as the old boxes, shown until a map is picked */
+    overflow: hidden;
   }
 
   .map-box img {
@@ -112,14 +141,10 @@
     box-sizing: border-box;
   }
 
-  #map-box-0 { left: 524px; }
-  #map-box-1 { left: 853px; }
-  #map-box-2 { left: 1180px; }
-
-  .hidden { visibility: hidden; }
 </style>
 </head>
 <body>
+<div id="stage">
 
   <img id="bg" src="/intro-background.png" alt="" />
 
@@ -137,18 +162,10 @@
     <div class="team-name" id="name-right"></div>
   </div>
 
-  <div class="box map-box" id="map-box-0">
-    <img id="map-img-0" src="" alt="" />
-    <div class="map-name" id="map-name-0"></div>
-  </div>
-  <div class="box map-box" id="map-box-1">
-    <img id="map-img-1" src="" alt="" />
-    <div class="map-name" id="map-name-1"></div>
-  </div>
-  <div class="box map-box" id="map-box-2">
-    <img id="map-img-2" src="" alt="" />
-    <div class="map-name" id="map-name-2"></div>
-  </div>
+  <div id="map-row"></div>
+
+</div>
+<script src="/scale.js"></script>
 
 <script>
   let targetTime = null;
@@ -197,49 +214,55 @@
     img.src = url;
   }
 
-  function loadMap(index, mapName) {
-    const img = document.getElementById('map-img-' + index);
-    const nameEl = document.getElementById('map-name-' + index);
-    nameEl.textContent = mapName || '';
-    if (!mapName) {
-      img.style.display = 'none';
-      return;
-    }
-    const url = '/map-image/' + encodeURIComponent(mapName) + '?t=' + Date.now();
-    img.onerror = () => {
-      img.style.display = 'none';
-      console.error('[intro overlay] map image not found:', mapName, '- tried', url, '- check assets/maps/ for a matching file (any case, .png/.jpg/.jpeg/.webp)');
-    };
-    img.onload = () => { img.style.display = 'block'; };
-    img.src = url;
-  }
+  // the map slots depend on both the map picks (intro settings) and Best of (score settings)
+  let latestMaps = [];
+  let latestBestOf = 3;
 
   function renderIntro(intro) {
     targetTime = intro.targetTime;
     renderTimer();
+    latestMaps = intro.maps || [];
+    renderMaps();
+  }
 
-    const format = intro.format || 3;
-    const maps = intro.maps || [];
+  // one map box: image (if a map is picked) + name bar
+  function mapBox(mapName) {
+    const box = document.createElement('div');
+    box.className = 'map-box';
+    if (!mapName) return box;
 
-    if (format === 1) {
-      // single map: show only the middle slot, hide the other two
-      document.getElementById('map-box-0').classList.add('hidden');
-      document.getElementById('map-box-2').classList.add('hidden');
-      document.getElementById('map-box-1').classList.remove('hidden');
-      loadMap(1, maps[0]);
-    } else {
-      document.getElementById('map-box-0').classList.remove('hidden');
-      document.getElementById('map-box-1').classList.remove('hidden');
-      document.getElementById('map-box-2').classList.remove('hidden');
-      loadMap(0, maps[0]);
-      loadMap(1, maps[1]);
-      loadMap(2, maps[2]);
-    }
+    const img = document.createElement('img');
+    const url = '/map-image/' + encodeURIComponent(mapName) + '?t=' + Date.now();
+    img.onerror = () => {
+      img.style.display = 'none';
+      console.error('[intro overlay] map image not found:', mapName, '- tried', url, '- not on valorant-api.com and no matching file in assets/maps/');
+    };
+    img.onload = () => { img.style.display = 'block'; };
+    img.src = url;
+
+    const name = document.createElement('div');
+    name.className = 'map-name';
+    name.textContent = mapName;
+
+    box.append(img, name);
+    return box;
+  }
+
+  function renderMaps() {
+    const row = document.getElementById('map-row');
+    const count = [1, 3, 5].includes(latestBestOf) ? latestBestOf : 3;
+    row.className = 'bo' + count;
+    row.innerHTML = '';
+    for (let i = 0; i < count; i++) row.appendChild(mapBox(latestMaps[i]));
   }
 
   function renderScore(score) {
     loadTeamLogo('logo-left-img', 'name-left', score.teamLabel);
     loadTeamLogo('logo-right-img', 'name-right', score.opponentLabel);
+    if ((score.bestOf || 3) !== latestBestOf) {
+      latestBestOf = score.bestOf || 3;
+      renderMaps();
+    }
   }
 
   // initial load
